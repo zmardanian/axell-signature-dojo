@@ -6,8 +6,8 @@ namespace dojo::gui
 {
 namespace
 {
-const char* const kNames[] = { "Overview", "Plugins", "Voice Profile", "Chains", "Workstation" };
-const char* const kIcons[] = { "home", "plugins", "voice", "chains", "workstation" };
+const char* const kNames[] = { "Overview", "Plugins", "Voice Profile", "Chains", "Tools", "Workstation" };
+const char* const kIcons[] = { "home", "plugins", "voice", "chains", "tools", "workstation" };
 } // namespace
 
 //== Sidebar =====================================================================================================
@@ -147,6 +147,7 @@ MainComponent::MainComponent (AppState& s, AudioEngine& audio) : state (s), side
     pages[plugins] = std::make_unique<PluginsPage> (state);
     pages[profile] = std::make_unique<ProfilePage> (state, audio);
     pages[chains] = std::make_unique<ChainsPage> (state);
+    pages[studio] = std::make_unique<ToolsPage> (state, audio);
     pages[workstation] = std::make_unique<WorkstationPage> (state);
     for (auto& p : pages)
     {

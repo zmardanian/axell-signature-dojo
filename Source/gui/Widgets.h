@@ -76,7 +76,7 @@ private:
 
 // label / big value / note, with a status dot
 void metricTile (juce::Graphics&, juce::Rectangle<float>, const juce::String& label, const juce::String& value,
-                 const juce::String& note, juce::Colour status);
+                 const juce::String& note, juce::Colour status, const juce::String& confidence = {});
 
 // an animated ring while something runs
 class Spinner : public juce::Component, private juce::Timer

@@ -83,7 +83,8 @@ std::vector<float> ProfileEngine::envelopeDb (const juce::AudioBuffer<float>& a,
     return e;
 }
 
-ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Progress& progress, const std::atomic<bool>* cancel) const
+ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Progress& progress, const std::atomic<bool>* cancel,
+                                   const juce::File& reference, float amount) const
 {
     ProfileOutcome out;
     out.take = take;
@@ -124,6 +125,29 @@ ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Prog
         for (auto& st : pp.settings)
             s.values.push_back ({ st.param, st.text });
         out.stages.push_back (std::move (s));
+    }
+    // the reference's voiced spectrum, and the bells that move the take toward it
+    voice::Curve refLtas;
+    if (reference.existsAsFile())
+    {
+        juce::AudioBuffer<float> ref;
+        double refRate = 48000.0;
+        juce::String err;
+        say (0.25f, "Listening to the reference");
+        if (! loadTake (reference, ref, refRate, err))
+        {
+            out.error = "The reference: " + err;
+            return out;
+        }
+        const float* rch[2] = { ref.getReadPointer (0), ref.getReadPointer (1) };
+        refLtas = voice::analyse (rch, 2, (size_t) ref.getNumSamples(), refRate).ltas;
+        out.reference = reference;
+        out.toneBeforeDb = tone::match (out.profile.ltas, refLtas, 1.0f).targetRmsDb;
+        out.bells = tone::match (out.profile.ltas, refLtas, juce::jlimit (0.0f, 1.0f, amount)).bells;
+        for (auto& st : out.stages)
+            if (st.product != nullptr && st.product->key == "penta")
+                st.why.add ("Reference Match with " + reference.getFileName() + ": " + juce::String ((int) out.bells.size())
+                            + " bells move your tone toward it (difference " + juce::String (out.toneBeforeDb, 1) + " dB RMS before).");
     }
     if (! tune)
     {
@@ -185,6 +209,28 @@ ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Prog
             if (! h.set (st.param, st.text, &why))
                 so.problem = why;
         }
+        if (pp.plugin == "penta" && ! refLtas.hz.empty())
+        {
+            // fitted to what this EQ actually receives (the take after the stages before it), not to the raw take
+            const float* ic[2] = { full.getReadPointer (0), full.getReadPointer (1) };
+            const auto inLtas = voice::analyse (ic, 2, (size_t) full.getNumSamples(), rate).ltas;
+            out.toneBeforeDb = tone::match (inLtas, refLtas, 1.0f).targetRmsDb;
+            out.bells = tone::match (inLtas, refLtas, juce::jlimit (0.0f, 1.0f, amount)).bells;
+        }
+        if (pp.plugin == "penta")
+            for (size_t k = 0; k < out.bells.size() && k < 6; ++k)
+            {
+                const auto& bell = out.bells[k];
+                const juce::String band = "Band " + juce::String ((int) k + 1) + " ";
+                juce::String why;
+                bool ok = h.set (band + "Active", "On") && h.set (band + "Type", "Bell", &why) && h.set (band + "Mode", "Clean", &why)
+                          && h.set (band + "Frequency", juce::String (bell.hz, 1) + " Hz", &why)
+                          && h.set (band + "Gain", (bell.gainDb >= 0.0f ? "+" : "") + juce::String (bell.gainDb, 1) + " dB", &why)
+                          && h.set (band + "Q", juce::String (bell.q, 2), &why);
+                if (! ok)
+                    so.problem = "Reference Match: " + why;
+                so.values.push_back ({ band.trim(), h.text (band + "Frequency") + " " + h.text (band + "Gain") + " Q " + h.text (band + "Q") });
+            }
         so.inLufs = lufs (full, rate);
         const float exIn = lufs (excerpt, rate);
         const auto inEnv = envelopeDb (excerpt, rate);
@@ -309,7 +355,16 @@ ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Prog
                 rendered = h.render (full, cancel);
                 so.outLufs = lufs (rendered, rate);
             }
+        if (pp.plugin == "penta" && ! refLtas.hz.empty())
+        {
+            const float* rc[2] = { rendered.getReadPointer (0), rendered.getReadPointer (1) };
+            out.toneAfterDb = tone::match (voice::analyse (rc, 2, (size_t) rendered.getNumSamples(), rate).ltas, refLtas, 1.0f).targetRmsDb;
+            so.why.add ("Measured on your rendered take: tone difference to the reference " + juce::String (out.toneBeforeDb, 1) + " -> "
+                        + juce::String (out.toneAfterDb, 1) + " dB RMS.");
+        }
         full = std::move (rendered);
+        if (full.getNumSamples() <= (int) (300.0 * rate))
+            out.stageAudio.push_back (full);
         excerpt = slice (full, exStart, exLen);
         out.built.push_back (std::move (b));
     }

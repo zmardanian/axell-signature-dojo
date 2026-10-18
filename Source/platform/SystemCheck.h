@@ -47,6 +47,8 @@ public:
     static juce::String withVstPathAdded (const juce::String& reaperIni, const juce::String& folder);
     static std::pair<int, int> parsePipewire (const juce::String& pwMetadataOutput);   // rate, quantum (0 = unknown)
     static juce::String pipewireDropIn (int quantum);
+    // REAPER's program: ~/opt/REAPER, /opt/REAPER, ~/REAPER, or on PATH; {} if absent
+    static juce::File findReaper (const Paths&);
 
     // the sub-checks
     Check system() const;
@@ -63,7 +65,6 @@ public:
 
 private:
     juce::File reaperIni() const { return paths.reaperConfig().getChildFile ("reaper.ini"); }
-    juce::File reaperBinary() const;
     Paths paths;
 };
 } // namespace dojo

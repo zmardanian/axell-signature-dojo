@@ -6,6 +6,7 @@
 #include "../platform/ProfileEngine.h"
 #include "../platform/Suite.h"
 #include "../platform/SystemCheck.h"
+#include "../platform/Tools.h"
 
 #include <juce_events/juce_events.h>
 
@@ -71,6 +72,8 @@ public:
     float profileProgress = 0.0f;
     juce::String profileStatus, profileError;
     juce::StringArray writeLog;
+    juce::File reference;                      // Reference Match: the vocal to move toward ({} = none)
+    float referenceAmount = 1.0f;
     void analyse (const juce::File& takeFile, bool tune);
     void writeProfile (const ProfileEngine::WriteOptions&);
     juce::Array<juce::File> savedProfiles() const;
@@ -80,6 +83,31 @@ public:
     std::map<juce::String, bool> chainBusy;
     bool chainInstalled (const ChainTemplate&) const;
     void installChain (const ChainTemplate&);
+    // profile chains the Dojo saved ("<name> - Vocal Chain.RfxChain"), newest first
+    juce::Array<juce::File> profileChains() const;
+    juce::String reaperMessage;
+    bool reaperMessageOk = true;
+    void openInReaper (const juce::File& chainFile, const juce::String& trackName);
+
+    //== tools ==
+    juce::File batchChain;
+    juce::Array<juce::File> batchFiles;
+    std::vector<tools::RenderedFile> batchResults;
+    bool batchBusy = false;
+    float batchProgress = 0.0f;
+    juce::String batchStatus;
+    juce::File batchOutput() const { return paths.home.getChildFile ("Documents/Axell Signature/Rendered"); }
+    void runBatch();
+
+    std::shared_ptr<tools::MasterPreview> master;
+    bool masterBusy = false;
+    juce::String masterError;
+    void previewMaster (const juce::File&);
+
+    juce::String backupMessage;
+    bool backupOk = true;
+    void exportBackup (const juce::File& destination);
+    void importBackup (const juce::File& folder);
 
     //== settings ==
     juce::PropertiesFile& settings() { return *props; }

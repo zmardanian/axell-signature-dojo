@@ -60,6 +60,12 @@ public:
     Written write (const juce::String& fileName, const juce::String& text) const;
     bool wroteBefore (const juce::File&) const;   // the Dojo wrote this file and it is unchanged since
 
+    // a REAPER project: one track named `trackName`, record-armed on input 1 (monitoring off), holding the chain
+    static juce::String projectText (const juce::String& trackName, const juce::String& chainText);
+    // writes that project for a saved chain file into ~/Documents/Axell Signature (a new file, never replacing one)
+    // and opens REAPER on it; in a sandbox it only writes the project
+    StepResult openInReaper (const juce::File& chainFile, const juce::String& trackName, juce::File* projectOut = nullptr) const;
+
 private:
     juce::File ledger() const { return paths.dojoData().getChildFile ("written-files.xml"); }
     void remember (const juce::File&) const;

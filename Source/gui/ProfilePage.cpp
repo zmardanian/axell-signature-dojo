@@ -29,21 +29,60 @@ ProfilePage::ProfilePage (AppState& s, AudioEngine& a) : state (s), audio (a)
     playStop.onClick = [this]
     {
         juce::String err;
-        if (audio.isPlaying())
+        if (audio.isPlaying() && audio.owner == this)
             audio.stop();
-        else if (audio.open (err))
+        else if (shown != nullptr && audio.open (err))
+        {
+            claimAudio();
             audio.play();
+        }
         refresh();
     };
-    for (auto* b : { &abOriginal, &abChain })
+    variant (referenceButton, "ghost", theme::info);
+    referenceButton.getProperties().set ("icon", "voice");
+    referenceButton.setTooltip ("Choose a vocal whose tone you love: the Penta EQ step moves your voice toward it, measured on your take.");
+    referenceButton.onClick = [this]
     {
-        variant (*b, "ghost", theme::teal);
-        b->setClickingTogglesState (false);
-    }
-    abOriginal.setButtonText ("Original");
-    abChain.setButtonText ("Through your chain");
-    abOriginal.onClick = [this] { audio.setProcessed (false); refresh(); };
-    abChain.onClick = [this] { audio.setProcessed (true); refresh(); };
+        auto pick = [this]
+        {
+            chooser = std::make_unique<juce::FileChooser> ("A reference vocal (acapella)", juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+                                                           "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3");
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [this] (const juce::FileChooser& fc)
+            {
+                if (fc.getResult().existsAsFile() && state.take.existsAsFile())
+                {
+                    state.reference = fc.getResult();
+                    state.analyse (state.take, true);
+                }
+            });
+        };
+        if (! state.reference.existsAsFile())
+        {
+            pick();
+            return;
+        }
+        juce::PopupMenu m;
+        m.addSectionHeader ("Reference: " + state.reference.getFileName());
+        m.addItem (1, "Choose another reference");
+        for (int pct : { 100, 75, 50 })
+            m.addItem (100 + pct, "Match " + juce::String (pct) + " %", true, juce::roundToInt (state.referenceAmount * 100.0f) == pct);
+        m.addItem (2, "No reference");
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (referenceButton), [this, pick] (int r)
+        {
+            if (r == 1)
+                pick();
+            else if (r == 2)
+            {
+                state.reference = juce::File();
+                state.analyse (state.take, true);
+            }
+            else if (r > 100)
+            {
+                state.referenceAmount = (float) (r - 100) / 100.0f;
+                state.analyse (state.take, true);
+            }
+        });
+    };
     variant (tune, "primary", theme::accent);
     tune.getProperties().set ("icon", "sparkle");
     tune.setButtonText ("Tune with my plugins");
@@ -53,6 +92,17 @@ ProfilePage::ProfilePage (AppState& s, AudioEngine& a) : state (s), audio (a)
     saveButton.getProperties().set ("icon", "download");
     saveButton.setButtonText ("Save presets and REAPER chain");
     saveButton.onClick = [this] { save(); };
+    variant (openReaper, "ghost", theme::ok);
+    openReaper.getProperties().set ("icon", "play");
+    openReaper.setButtonText ("Open in REAPER");
+    openReaper.setTooltip ("Opens REAPER on a new project: a vocal track named after this profile, armed on input 1, with the chain on it.");
+    openReaper.onClick = [this]
+    {
+        const auto name = profileName.getText().trim().isEmpty() ? juce::String ("My Voice") : profileName.getText().trim();
+        state.openInReaper (state.getPaths().reaperChains().getChildFile (juce::File::createLegalFileName (name + " - Vocal Chain") + ".RfxChain"),
+                            "Vocal - " + name);
+    };
+    profileName.onTextChange = [this] { refresh(); };
     profileName.setText ("My Voice", false);
     profileName.setFont (theme::body());
     profileName.setIndents (10, 8);
@@ -60,8 +110,8 @@ ProfilePage::ProfilePage (AppState& s, AudioEngine& a) : state (s), audio (a)
 
     envelope.onSeek = [this] (double t) { audio.seek (t); };
     spectrum.setUnit ("dB");
-    for (auto* c : std::initializer_list<juce::Component*> { &record, &chooseTake, &audioSettings, &playStop, &abOriginal, &abChain, &tune,
-                                                              &saveButton, &profileName, &envelope, &spectrum, &lowMids, &pitch, &chain })
+    for (auto* c : std::initializer_list<juce::Component*> { &record, &chooseTake, &audioSettings, &playStop, &referenceButton, &tune,
+                                                              &saveButton, &openReaper, &profileName, &envelope, &spectrum, &lowMids, &pitch, &chain })
         content().addAndMakeVisible (c);
     content().addChildComponent (spinner);
     spinner.setColour (theme::teal);
@@ -70,7 +120,8 @@ ProfilePage::ProfilePage (AppState& s, AudioEngine& a) : state (s), audio (a)
 
 ProfilePage::~ProfilePage()
 {
-    audio.stop();
+    if (audio.owner == this)
+        audio.stop();
     audio.stopRecording();
 }
 
@@ -138,14 +189,54 @@ void ProfilePage::openAudioSettings()
 
 void ProfilePage::loadPlayback()
 {
-    juce::AudioBuffer<float> original;
     double rate = 48000.0;
     juce::String err;
+    original.setSize (0, 0);
     if (shown == nullptr || ! ProfileEngine::loadTake (shown->take, original, rate, err))
         return;
-    audio.stop();
-    audio.setPlayback (original, shown->processed, rate);
-    audio.setProcessed (shown->processed.getNumSamples() > 0);
+    // the step buttons: Original, then the take after each plugin (when the tuning kept them)
+    steps.clear();
+    step = -1;
+    if (! shown->stageAudio.empty())
+    {
+        steps.add (new juce::TextButton ("Original"));
+        for (const auto& st : shown->stages)
+            if (st.product != nullptr && st.available)
+                steps.add (new juce::TextButton ("+ " + st.product->name.fromFirstOccurrenceOf ("Axell ", false, false)));
+        for (int i = 0; i < steps.size(); ++i)
+        {
+            steps[i]->onClick = [this, i] { selectStep (i); };
+            steps[i]->setTooltip (i == 0 ? "Your take as recorded." : "Your take after the chain up to this plugin. Switch while it plays: the position stays.");
+            content().addAndMakeVisible (steps[i]);
+        }
+        step = steps.size() - 1;   // the whole chain
+    }
+    if (audio.owner == this)
+    {
+        audio.stop();
+        claimAudio();
+    }
+}
+
+// what plays: the original (step 0) or the take after stage `step` (the last one = the whole chain)
+void ProfilePage::claimAudio()
+{
+    if (shown == nullptr || original.getNumSamples() == 0)
+        return;
+    audio.owner = this;
+    audio.setGainB (1.0f);
+    const auto& stagesAudio = shown->stageAudio;
+    const bool haveStages = ! stagesAudio.empty() && step >= 1 && step - 1 < (int) stagesAudio.size();
+    audio.setPlayback (original, haveStages ? stagesAudio[(size_t) (step - 1)] : shown->processed, shown->sampleRate, true);
+    audio.setProcessed (step != 0 && (haveStages || shown->processed.getNumSamples() > 0));
+}
+
+void ProfilePage::selectStep (int i)
+{
+    step = i;
+    if (audio.owner == this)
+        claimAudio();
+    refresh();
 }
 
 void ProfilePage::save()
@@ -163,9 +254,9 @@ void ProfilePage::save()
 
 void ProfilePage::timerCallback()
 {
-    if (audio.isRecording() || audio.isPlaying())
+    if (audio.isRecording() || (audio.isPlaying() && audio.owner == this))
     {
-        envelope.setCursor (audio.isPlaying() ? audio.position() : -1.0);
+        envelope.setCursor (audio.isPlaying() && audio.owner == this ? audio.position() : -1.0);
         content().repaint (takeCard);
     }
     else if (envelope.isShowing())
@@ -222,19 +313,27 @@ void ProfilePage::refresh()
     variant (record, rec ? "danger" : "primary", theme::teal);
     record.setEnabled (! state.profileBusy);
     chooseTake.setEnabled (! state.profileBusy && ! rec);
-    for (auto* c : std::initializer_list<juce::Component*> { &envelope, &playStop, &abOriginal, &abChain, &spectrum, &lowMids, &pitch, &chain, &tune })
+    for (auto* c : std::initializer_list<juce::Component*> { &envelope, &playStop, &referenceButton, &spectrum, &lowMids, &pitch, &chain, &tune })
         c->setVisible (has);
     const bool tuned = has && state.profileTuned && ! shown->built.empty();
     saveButton.setVisible (tuned);
     profileName.setVisible (tuned);
+    {
+        const auto name = profileName.getText().trim().isEmpty() ? juce::String ("My Voice") : profileName.getText().trim();
+        openReaper.setVisible (tuned);
+        openReaper.setEnabled (state.getPaths().reaperChains().getChildFile (juce::File::createLegalFileName (name + " - Vocal Chain") + ".RfxChain").existsAsFile());
+    }
     saveButton.setEnabled (! state.profileBusy);
     tune.setEnabled (! state.profileBusy);
     tune.setButtonText (tuned ? "Tune again" : "Tune with my plugins");
-    abChain.setEnabled (tuned);
-    playStop.setButtonText (audio.isPlaying() ? "Stop" : "Play");
-    playStop.getProperties().set ("icon", audio.isPlaying() ? "stop" : "play");
-    variant (abOriginal, audio.processedSelected() && tuned ? "ghost" : "primary", theme::teal);
-    variant (abChain, audio.processedSelected() && tuned ? "primary" : "ghost", theme::teal);
+    const bool mine = audio.owner == this;
+    playStop.setButtonText (audio.isPlaying() && mine ? "Stop" : "Play");
+    playStop.getProperties().set ("icon", audio.isPlaying() && mine ? "stop" : "play");
+    for (int i = 0; i < steps.size(); ++i)
+        variant (*steps[i], i == step ? "primary" : "ghost", i == 0 ? theme::dim : theme::teal);
+    referenceButton.setButtonText (state.reference.existsAsFile() ? "Reference: " + state.reference.getFileNameWithoutExtension().substring (0, 22)
+                                                                  : juce::String ("Match a reference"));
+    referenceButton.setEnabled (! state.profileBusy);
     spinner.setActive (state.profileBusy);
     spinner.setProgress (state.profileBusy ? state.profileProgress : -1.0f);
     Page::refresh();
@@ -245,7 +344,7 @@ int ProfilePage::layout (int width)
     const int m = kMargin, gap = 16;
     int y = kHeader + 4;
     const bool has = shown != nullptr;
-    takeCard = { m, y, width - 2 * m, has ? 214 : 176 };
+    takeCard = { m, y, width - 2 * m, has ? (steps.isEmpty() ? 214 : 254) : 176 };
     {
         auto r = takeCard.reduced (22, 20);
         auto row = r.removeFromTop (38).withY (takeCard.getY() + 74);
@@ -257,11 +356,17 @@ int ProfilePage::layout (int width)
         spinner.setBounds (takeCard.getRight() - 62, takeCard.getY() + 18, 40, 40);
         if (has)
         {
-            auto env = juce::Rectangle<int> (takeCard.getX() + 22, takeCard.getY() + 126, takeCard.getWidth() - 44 - 330, 66);
+            auto env = juce::Rectangle<int> (takeCard.getX() + 22, takeCard.getY() + 126, takeCard.getWidth() - 44 - 120, 66);
+            // the step buttons under it: hear the take after each plugin
+            int bx = env.getX();
+            for (auto* st : steps)
+            {
+                const int w = juce::jmax (84, (int) juce::GlyphArrangement::getStringWidth (theme::bodyBold().withHeight (13.0f), st->getButtonText()) + 26);
+                st->setBounds (bx, env.getBottom() + 10, w, 30);
+                bx += w + 6;
+            }
             envelope.setBounds (env);
-            playStop.setBounds (env.getRight() + 14, env.getY(), 92, 32);
-            abOriginal.setBounds (env.getRight() + 14, env.getY() + 36, 100, 30);
-            abChain.setBounds (env.getRight() + 118, env.getY() + 36, 184, 30);
+            playStop.setBounds (env.getRight() + 14, env.getY() + 17, 92, 32);
         }
     }
     y = takeCard.getBottom() + 22;
@@ -286,7 +391,10 @@ int ProfilePage::layout (int width)
     }
     y = plotsCard.getBottom() + 22;
 
-    const auto& notes = shown->plan.notes;
+    auto notes = shown->plan.notes;
+    for (const auto& c : voice::confidence (shown->profile))
+        if (c.level != voice::Confidence::Level::high)
+            notes.push_back (std::string (c.measure) + " (" + (c.level == voice::Confidence::Level::low ? "low" : "medium") + " confidence): " + c.why);
     float nh = 0.0f;
     for (auto& n : notes)
         nh += theme::paragraphHeight (n, (float) (width - 2 * m - 70), theme::body(), 4) + 12.0f;
@@ -307,18 +415,20 @@ int ProfilePage::layout (int width)
         colH[(size_t) (k++ % 2)] += h + 10.0f;
     }
     whyH = juce::jmax (colH[0], colH[1]);
-    chainCard = { m, y, width - 2 * m, 70 + 96 + 24 + (int) whyH + 14 };
-    chain.setBounds (chainCard.getX() + 22, chainCard.getY() + 62, chainCard.getWidth() - 44, 96);
+    chainCard = { m, y, width - 2 * m, 92 + 96 + 24 + (int) whyH + 14 };
+    chain.setBounds (chainCard.getX() + 22, chainCard.getY() + 84, chainCard.getWidth() - 44, 96);
     whyTop = chain.getBottom() + 22;
     tune.setBounds (chainCard.getRight() - 22 - 220, chainCard.getY() + 16, 220, 36);
+    referenceButton.setBounds (tune.getX() - 12 - 260, chainCard.getY() + 16, 260, 36);
     y = chainCard.getBottom() + 22;
 
     const bool tuned = state.profileTuned && ! shown->built.empty();
-    saveCard = tuned ? juce::Rectangle<int> (m, y, width - 2 * m, 120 + 20 * juce::jmax (0, state.writeLog.size())) : juce::Rectangle<int>();
+    saveCard = tuned ? juce::Rectangle<int> (m, y, width - 2 * m, 120 + 20 * (juce::jmax (0, state.writeLog.size()) + (state.reaperMessage.isNotEmpty() ? 1 : 0))) : juce::Rectangle<int>();
     if (tuned)
     {
         profileName.setBounds (saveCard.getX() + 22, saveCard.getY() + 60, 260, 36);
         saveButton.setBounds (saveCard.getX() + 296, saveCard.getY() + 60, 280, 36);
+        openReaper.setBounds (saveCard.getX() + 590, saveCard.getY() + 60, 190, 36);
         y = saveCard.getBottom() + 22;
     }
     return y + 30;
@@ -378,21 +488,27 @@ void ProfilePage::paintContent (juce::Graphics& g)
         return;
     const auto& p = shown->profile;
 
-    // metrics
+    // metrics (with a confidence chip where this take makes a measure less certain)
+    const auto conf = voice::confidence (p);
+    auto confLabel = [&] (int i) -> juce::String
+    {
+        const auto l = conf[(size_t) i].level;
+        return l == voice::Confidence::Level::high ? juce::String() : (l == voice::Confidence::Level::low ? "Low" : "Medium");
+    };
     {
         const auto loudCol = p.clippedRuns > 0 ? theme::problem : theme::ok;
         metricTile (g, metricCells[0].toFloat(), "Loudness", juce::String (p.integratedLufs, 1) + " LUFS",
-                    "Peak " + juce::String (p.peakDbfs, 1) + " dBFS" + (p.clippedRuns > 0 ? ", clips " + juce::String (p.clippedRuns) + "x" : ""), loudCol);
+                    "Peak " + juce::String (p.peakDbfs, 1) + " dBFS" + (p.clippedRuns > 0 ? ", clips " + juce::String (p.clippedRuns) + "x" : ""), loudCol, confLabel (0));
         metricTile (g, metricCells[1].toFloat(), "Background", juce::String (juce::roundToInt (p.snrDb)) + " dB under you",
-                    "Noise floor " + juce::String (juce::roundToInt (p.noiseFloorDb)) + " dBFS", p.snrDb >= 35.0f ? theme::ok : (p.snrDb >= 20.0f ? theme::warn : theme::problem));
+                    "Noise floor " + juce::String (juce::roundToInt (p.noiseFloorDb)) + " dBFS", p.snrDb >= 35.0f ? theme::ok : (p.snrDb >= 20.0f ? theme::warn : theme::problem), confLabel (1));
         metricTile (g, metricCells[2].toFloat(), "Pitch", p.f0Median > 0 ? hz (p.f0Median) : juce::String ("-"),
-                    p.f0Median > 0 ? "Range " + juce::String (juce::roundToInt (p.f0Low)) + "-" + juce::String (juce::roundToInt (p.f0High)) + " Hz (10-90 %)" : "Not enough voiced audio", theme::teal);
+                    p.f0Median > 0 ? "Range " + juce::String (juce::roundToInt (p.f0Low)) + "-" + juce::String (juce::roundToInt (p.f0High)) + " Hz (10-90 %)" : "Not enough voiced audio", theme::teal, confLabel (2));
         metricTile (g, metricCells[3].toFloat(), "Esses", p.sHz > 0 ? hz (p.sHz) : juce::String ("-"),
-                    "sh at " + hz (p.shHz) + "; " + juce::String (juce::roundToInt (100.0f * p.sShare)) + " % of their energy in the s", theme::accent);
+                    "sh at " + hz (p.shHz) + "; " + juce::String (juce::roundToInt (100.0f * p.sShare)) + " % of their energy in the s", theme::accent, confLabel (3));
         metricTile (g, metricCells[4].toFloat(), "Room", p.processedTake ? juce::String ("Not measurable") : juce::String (p.rt60, 2) + " s",
-                    p.processedTake ? "Effects are printed into this take" : "Decay (RT60, measured blind from your words)", p.processedTake ? theme::warn : theme::info);
+                    p.processedTake ? "Effects are printed into this take" : "Decay (RT60, measured blind from your words)", p.processedTake ? theme::warn : theme::info, confLabel (4));
         metricTile (g, metricCells[5].toFloat(), "Low end", juce::String (juce::roundToInt (p.rumbleDb)) + " dB",
-                    "Rumble under the voice; pops and bumps reach " + juce::String (juce::roundToInt (p.lfBurstDb)) + " dB", p.rumbleDb > -25.0f ? theme::warn : theme::ok);
+                    "Rumble under the voice; pops and bumps reach " + juce::String (juce::roundToInt (p.lfBurstDb)) + " dB", p.rumbleDb > -25.0f ? theme::warn : theme::ok, confLabel (5));
     }
     // plots
     {
@@ -413,7 +529,11 @@ void ProfilePage::paintContent (juce::Graphics& g)
         g.setFont (theme::heading());
         g.drawText ("About this take", (int) r.getX() + 22, (int) r.getY() + 16, 400, 24, juce::Justification::centredLeft);
         float y = r.getY() + 50.0f;
-        for (auto& n : shown->plan.notes)
+        auto notes = shown->plan.notes;
+        for (const auto& c : voice::confidence (shown->profile))
+            if (c.level != voice::Confidence::Level::high)
+                notes.push_back (std::string (c.measure) + " (" + (c.level == voice::Confidence::Level::low ? "low" : "medium") + " confidence): " + c.why);
+        for (auto& n : notes)
         {
             theme::icon (g, "info", { r.getX() + 22.0f, y, 18.0f, 18.0f }, theme::warn, 1.8f);
             y += theme::paragraph (g, n, { r.getX() + 50.0f, y, r.getWidth() - 74.0f, 200.0f }, theme::body(), theme::dim, 4) + 12.0f;
@@ -428,9 +548,12 @@ void ProfilePage::paintContent (juce::Graphics& g)
         g.drawText ("Your vocal chain", (int) r.getX() + 22, (int) r.getY() + 18, 400, 24, juce::Justification::centredLeft);
         g.setColour (theme::dim);
         g.setFont (theme::small());
-        g.drawText (state.profileTuned ? "Tuned on your take through the installed plugins. Each plugin's output matches its input loudness."
-                                       : "Planned from the measurements. Tuning sets compression and levels by rendering your take.",
-                    (int) r.getX() + 22, (int) r.getY() + 40, (int) r.getWidth() - 300, 18, juce::Justification::centredLeft);
+        g.drawText (shown->reference.existsAsFile() && state.profileTuned
+                        ? "Matched toward " + shown->reference.getFileName() + ": tone difference " + juce::String (shown->toneBeforeDb, 1) + " -> "
+                              + juce::String (shown->toneAfterDb, 1) + " dB RMS, measured on your rendered take."
+                        : (state.profileTuned ? "Tuned on your take through the installed plugins. Each plugin's output matches its input loudness."
+                                              : "Planned from the measurements. Tuning sets compression and levels by rendering your take."),
+                    (int) r.getX() + 22, (int) r.getY() + 58, (int) r.getWidth() - 44, 18, juce::Justification::centredLeft);
         const float colW = (r.getWidth() - 60.0f) * 0.5f;
         float colY[2] = { (float) whyTop, (float) whyTop };
         int k = 0;
@@ -465,9 +588,12 @@ void ProfilePage::paintContent (juce::Graphics& g)
         g.drawText ("Presets for Gate, Penta EQ, Duo Compressor and Velvet, and one REAPER chain with all five, under this name.",
                     (int) r.getX() + 22, (int) r.getY() + 40, (int) r.getWidth() - 44, 18, juce::Justification::centredLeft);
         float y = r.getY() + 108.0f;
-        for (auto& line : state.writeLog)
+        auto lines = state.writeLog;
+        if (state.reaperMessage.isNotEmpty())
+            lines.add (state.reaperMessage);
+        for (auto& line : lines)
         {
-            const bool ok = line.contains ("saved");
+            const bool ok = line.contains ("saved") || line.startsWith ("REAPER opens");
             theme::icon (g, ok ? "check" : "warning", { r.getX() + 22.0f, y, 16.0f, 16.0f }, ok ? theme::ok : theme::warn, 2.0f);
             g.setColour (theme::dim);
             g.drawText (line, (int) r.getX() + 46, (int) y - 1, (int) r.getWidth() - 70, 18, juce::Justification::centredLeft);

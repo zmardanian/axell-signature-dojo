@@ -82,7 +82,12 @@ private:
     void save();
     AppState& state;
     AudioEngine& audio;
-    juce::TextButton record, chooseTake, audioSettings, playStop, abOriginal, abChain, tune, saveButton;
+    juce::TextButton record, chooseTake, audioSettings, playStop, tune, saveButton, openReaper, referenceButton;
+    juce::OwnedArray<juce::TextButton> steps;   // Original, then the take after each plugin
+    int step = -1;                               // -1: the whole chain (or the original before tuning)
+    juce::AudioBuffer<float> original;
+    void selectStep (int);
+    void claimAudio();
     juce::TextEditor profileName;
     EnvelopeView envelope;
     CurvePlot spectrum { 60.0f, 16000.0f, -60.0f, 0.0f }, lowMids { 150.0f, 1500.0f, -15.0f, 15.0f };
@@ -110,7 +115,7 @@ private:
     AppState& state;
     const ChainTemplate& tmpl;
     ChainDiagram diagram;
-    juce::TextButton add;
+    juce::TextButton add, open;
 };
 
 class ChainsPage : public Page
@@ -125,7 +130,36 @@ private:
     AppState& state;
     juce::TextButton addAll;
     juce::OwnedArray<TemplateCard> cards;
+    juce::OwnedArray<juce::TextButton> voiceButtons;   // "Open in REAPER" per saved profile chain
+    juce::Array<juce::File> voiceChains;
+    juce::Rectangle<int> voiceArea;
     std::vector<std::pair<juce::String, int>> groupTitles;   // title, y
+};
+
+//== Tools =======================================================================================================
+class ToolsPage : public Page, public juce::FileDragAndDropTarget
+{
+public:
+    ToolsPage (AppState&, AudioEngine&);
+    ~ToolsPage() override;
+    int layout (int width) override;
+    void paintContent (juce::Graphics&) override;
+    void refresh() override;
+    bool isInterestedInFileDrag (const juce::StringArray&) override;
+    void filesDropped (const juce::StringArray&, int, int) override;
+
+private:
+    void claimAudio();
+    void selectService (int);
+    AppState& state;
+    AudioEngine& audio;
+    juce::TextButton chainChoice, addFiles, clearFiles, render, showOutput, chooseMaster, playMaster, exportButton, importButton;
+    juce::OwnedArray<juce::TextButton> serviceButtons;   // "As mastered", then one per service
+    std::shared_ptr<tools::MasterPreview> shownMaster;
+    int selected = -1;                                    // -1: as mastered, else a service
+    juce::Rectangle<int> batchCard, masterCard, backupCard;
+    std::unique_ptr<juce::FileChooser> chooser;
+    Spinner spinner;
 };
 
 //== Workstation =================================================================================================

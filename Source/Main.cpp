@@ -1,7 +1,7 @@
 // Axell Signature Dojo - the application.
 //   Axell Signature Dojo            the app
 //   Axell Signature Dojo --check    the workstation report on the terminal (exit code 1 if a problem was found)
-//   Axell Signature Dojo --profile <take> [--name <name>] [--save]
+//   Axell Signature Dojo --profile <take> [--reference <vocal>] [--name <name>] [--save [--open]]
 //                                   a Voice Profile on the terminal: analysis, tuning through the installed plugins,
 //                                   and with --save the presets and REAPER chain (never replacing the user's own)
 //   AXELL_DOJO_SANDBOX=<folder>     every folder the Dojo touches lives under <folder> (testing, demos)
@@ -119,7 +119,8 @@ private:
     {
         juce::File take;
         juce::String name = "My Voice";
-        bool save = false;
+        bool save = false, open = false;
+        juce::File reference;
         for (int i = 0; i < args.size(); ++i)
         {
             if (args[i] == "--profile" && i + 1 < args.size())
@@ -128,6 +129,10 @@ private:
                 name = args[++i];
             else if (args[i] == "--save")
                 save = true;
+            else if (args[i] == "--open")
+                open = true;
+            else if (args[i] == "--reference" && i + 1 < args.size())
+                reference = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
         }
         if (! take.existsAsFile())
         {
@@ -135,7 +140,7 @@ private:
             return 2;
         }
         ProfileEngine eng (Paths::fromEnvironment());
-        auto o = eng.run (take, true, [] (float f, const juce::String& t) { std::printf ("\r%3d %%  %-60s", juce::roundToInt (f * 100.0f), t.toRawUTF8()); std::fflush (stdout); });
+        auto o = eng.run (take, true, [] (float f, const juce::String& t) { std::printf ("\r%3d %%  %-60s", juce::roundToInt (f * 100.0f), t.toRawUTF8()); std::fflush (stdout); }, nullptr, reference);
         std::printf ("\n");
         if (! o.ok)
         {
@@ -149,6 +154,8 @@ private:
                      p.shHz / 1000.0, p.sHz / 1000.0, p.rt60, p.processedTake ? " (effects printed in: room not measurable)" : "");
         for (auto& n : o.plan.notes)
             std::printf ("  note: %s\n", juce::String (n).toRawUTF8());
+        if (reference.existsAsFile())
+            std::printf ("  reference %s: tone difference %.1f -> %.1f dB RMS (%d bells)\n", reference.getFileName().toRawUTF8(), o.toneBeforeDb, o.toneAfterDb, (int) o.bells.size());
         for (const auto& s : o.stages)
         {
             if (s.product == nullptr)
@@ -159,8 +166,14 @@ private:
             std::printf ("  %-22s %s %s\n", s.product->name.toRawUTF8(), v.dropLastCharacters (2).toRawUTF8(), s.problem.toRawUTF8());
         }
         if (save)
+        {
+            const auto paths = Paths::fromEnvironment();
             for (auto& line : eng.write (o, { name, true, true, true }))
                 std::printf ("  %s\n", line.toRawUTF8());
+            if (open)
+                std::printf ("  %s\n", ChainWriter (paths).openInReaper (paths.reaperChains().getChildFile (juce::File::createLegalFileName (name + " - Vocal Chain") + ".RfxChain"),
+                                                                           "Vocal - " + name).message.toRawUTF8());
+        }
         else
             for (auto& line : eng.preview (o, { name, true, true, true }))
                 std::printf ("  would write %s\n", line.toRawUTF8());

@@ -114,7 +114,8 @@ bool HostedPlugin::set (const juce::String& param, const juce::String& text, juc
     p->setValueNotifyingHost (v);
     const auto got = p->getText (p->getValue(), 64);
     // the plugin may format the value its own way ("85 Hz" -> "85.0 Hz"): compare the numbers when both are numeric
-    auto number = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    // a number with its unit's scale ("3.00 kHz" = 3000 Hz), so "3000 Hz" and the plugin's "3.00 kHz" agree
+    auto number = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue() * (t.containsIgnoreCase ("khz") ? 1000.0 : 1.0); };
     const bool numeric = got.containsAnyOf ("0123456789") && text.containsAnyOf ("0123456789");
     const bool same = got.trim().equalsIgnoreCase (text.trim())
                       || (numeric && std::abs (number (got) - number (text)) <= std::max (0.051, 0.005 * std::abs (number (text))));

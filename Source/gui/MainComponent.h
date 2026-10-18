@@ -14,7 +14,7 @@ public:
     std::function<void (int)> navigate;   // to another section
 };
 
-enum Section { overview, plugins, profile, chains, workstation, numSections };
+enum Section { overview, plugins, profile, chains, studio, workstation, numSections };
 
 class Sidebar : public juce::Component, public juce::SettableTooltipClient, private juce::Timer
 {

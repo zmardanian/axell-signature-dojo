@@ -1,5 +1,7 @@
 #include "Chains.h"
 #include "StateTools.h"
+#include "Process.h"
+#include "SystemCheck.h"
 
 #include <juce_cryptography/juce_cryptography.h>
 
@@ -166,4 +168,48 @@ ChainWriter::Written ChainWriter::write (const juce::String& fileName, const juc
     w.message = "REAPER chain \"" + w.file.getFileNameWithoutExtension() + "\" saved.";
     return w;
 }
+
+juce::String ChainWriter::projectText (const juce::String& trackName, const juce::String& chainText)
+{
+    juce::String t;
+    t << "<REAPER_PROJECT 0.1 \"7.0/linux-x86_64\" " << juce::String (juce::Time::currentTimeMillis() / 1000) << "\n"
+      << "  <TRACK\n"
+      << "    NAME " << reaper::quote (trackName.toStdString()) << "\n"
+      << "    REC 1 0 0 0 0 0 0 0\n"   // armed, input 1 (mono), monitoring off: no feedback through speakers
+      << "    <FXCHAIN\n"
+      << "      SHOW 0\n      LASTSEL 0\n      DOCKED 0\n";
+    for (auto line : juce::StringArray::fromLines (chainText))
+        if (line.isNotEmpty())
+            t << "      " << line << "\n";
+    t << "    >\n  >\n>\n";
+    return t;
+}
+
+StepResult ChainWriter::openInReaper (const juce::File& chainFile, const juce::String& trackName, juce::File* projectOut) const
+{
+    if (! chainFile.existsAsFile())
+        return { false, "The chain has not been saved yet." };
+    const auto folder = paths.home.getChildFile ("Documents/Axell Signature");
+    if (! folder.createDirectory())
+        return { false, "Cannot write to " + folder.getFullPathName() };
+    const auto base = juce::File::createLegalFileName (trackName + " Session");
+    auto project = folder.getChildFile (base + ".RPP");
+    for (int i = 2; project.exists(); ++i)
+        project = folder.getChildFile (base + " " + juce::String (i) + ".RPP");
+    if (! project.replaceWithText (projectText (trackName, chainFile.loadFileAsString()), false, false, "\n"))
+        return { false, "Cannot write " + project.getFullPathName() };
+    if (projectOut != nullptr)
+        *projectOut = project;
+    if (paths.isSandbox)
+        return { true, "Sandbox: project written, REAPER not opened (" + project.getFileName() + ")." };
+    const auto reaperApp = SystemCheck::findReaper (paths);
+    if (reaperApp == juce::File())
+        return { false, "REAPER was not found. The project is ready to open: " + project.getFullPathName() };
+    // started in its own session so it keeps running after the Dojo closes
+    const auto r = Process::run ({ "setsid", "-f", reaperApp.getFullPathName(), project.getFullPathName() }, 10000);
+    if (! r.ok())
+        return { false, "REAPER could not be started. The project is ready to open: " + project.getFullPathName() };
+    return { true, "REAPER opens \"" + project.getFileName() + "\": the track \"" + trackName + "\" is armed with your chain." };
+}
 } // namespace dojo
+

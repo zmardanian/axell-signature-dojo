@@ -122,7 +122,7 @@ juce::String SystemCheck::pipewireDropIn (int quantum)
            "}\n";
 }
 
-juce::File SystemCheck::reaperBinary() const
+juce::File SystemCheck::findReaper (const Paths& paths)
 {
     for (auto f : { paths.home.getChildFile ("opt/REAPER/reaper"), juce::File ("/opt/REAPER/reaper"),
                     paths.home.getChildFile ("REAPER/reaper"), juce::File ("/usr/local/bin/reaper") })
@@ -232,8 +232,13 @@ std::vector<Check> SystemCheck::plugins() const
         c.status = Check::Status::problem;
         c.detail << ". Missing libraries: " << problems.joinIntoString ("; ") << ".";
     }
+    else if (installed > 0 && lddMissing)
+    {
+        c.status = Check::Status::warning;
+        c.detail << ", but their libraries could not be checked (ldd is missing or failed).";
+    }
     else
-        c.detail << (installed > 0 && ! lddMissing ? ", every library they need is present." : ".");
+        c.detail << ", every library they need is present.";
     if (installed == 0)
         c.status = Check::Status::info;
     return { c };
@@ -242,7 +247,7 @@ std::vector<Check> SystemCheck::plugins() const
 std::vector<Check> SystemCheck::daws() const
 {
     std::vector<Check> out;
-    const auto reaper = reaperBinary();
+    const auto reaper = findReaper (paths);
     if (reaper.existsAsFile())
     {
         Check c { "daw-reaper", "DAW", "REAPER", {}, Check::Status::ok, {}, {} };

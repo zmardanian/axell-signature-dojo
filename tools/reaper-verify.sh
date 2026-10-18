@@ -35,6 +35,7 @@ local function dump()
   local f = io.open(out_path, "w")
   local n = reaper.TrackFX_GetCount(tr)
   f:write("count\t" .. n .. "\n")
+  f:write("arm\t" .. math.floor(reaper.GetMediaTrackInfo_Value(tr, "I_RECARM")) .. "\n")
   for i = 0, n - 1 do
     local _, name = reaper.TrackFX_GetFXName(tr, i, "")
     local _, preset = reaper.TrackFX_GetPreset(tr, i, "")
@@ -51,9 +52,11 @@ end
 reaper.defer(dump)
 LUA
 status=0
-for chain in "$PREP"/*.RfxChain; do
-  name="$(basename "$chain" .RfxChain)"
+for chain in "$PREP"/*.RfxChain "$PREP"/*.RPP; do
+  [ -f "$chain" ] || continue
+  name="$(basename "$chain")"; name="${name%.*}"
   proj="$WORK/$name.RPP"
+  if [[ "$chain" == *.RPP ]]; then cp "$chain" "$proj"; else
   { echo '<REAPER_PROJECT 0.1 "7.80/linux-x86_64" 0'
     echo '  <TRACK'
     echo '    NAME "dojo verify"'
@@ -65,6 +68,7 @@ for chain in "$PREP"/*.RfxChain; do
     echo '    >'
     echo '  >'
     echo '>'; } > "$proj"
+  fi
   rm -f "$R/dojo-result.txt"
   timeout 120 "$R/reaper" -newinst -nosplash "$proj" >/dev/null 2>&1 || true
   if [ ! -f "$R/dojo-result.txt" ]; then echo "FAIL  $name: REAPER produced no result"; status=1; continue; fi
@@ -79,6 +83,11 @@ for g in got:
     if g[0] == "P": params[(int(g[1]), g[2])] = g[3]
 bad, checked = [], 0
 for e in exp:
+    if e[0] == "ARM":
+        armed = [g[1] for g in got if g[0] == "arm"]
+        if armed != [e[1]]: bad.append(f"track armed {armed}, expected {e[1]}")
+        checked += 1
+        continue
     i = int(e[1])
     if e[0] == "FX":
         n, preset = fx.get(i, ("<missing>", ""))

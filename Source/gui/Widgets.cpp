@@ -254,7 +254,7 @@ void ChainDiagram::paint (juce::Graphics& g)
 
 //== metric tile =================================================================================================
 void metricTile (juce::Graphics& g, juce::Rectangle<float> r, const juce::String& lbl, const juce::String& value,
-                 const juce::String& note, juce::Colour status)
+                 const juce::String& note, juce::Colour status, const juce::String& confidence)
 {
     g.setColour (ui::col::well.withAlpha (0.7f));
     g.fillRoundedRectangle (r, 9.0f);
@@ -264,7 +264,13 @@ void metricTile (juce::Graphics& g, juce::Rectangle<float> r, const juce::String
     g.setFont (theme::label());
     g.setColour (theme::dim);
     g.drawText (lbl.toUpperCase(), t.removeFromTop (14.0f), juce::Justification::centredLeft);
-    if (! status.isTransparent())
+    if (confidence.isNotEmpty())   // a measure to trust less on this take
+    {
+        const auto tag = confidence + " confidence";
+        const float w = theme::chipWidth (tag);
+        theme::chip (g, { r.getRight() - w - 10.0f, r.getY() + 9.0f, w, 18.0f }, tag, confidence == "Low" ? theme::warn : theme::info);
+    }
+    else if (! status.isTransparent())
     {
         g.setColour (status);
         g.fillEllipse (r.getRight() - 18.0f, r.getY() + 14.0f, 7.0f, 7.0f);

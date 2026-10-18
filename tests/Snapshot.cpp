@@ -26,12 +26,17 @@ int main (int argc, char** argv)
     }
     const juce::File out (juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]));
     out.createDirectory();
-    juce::File take;
+    juce::File take, reference, master;
     float scale = 2.0f;
     for (int i = 2; i < argc; ++i)
     {
-        if (juce::String (argv[i]) == "--scale" && i + 1 < argc)
+        const juce::String a (argv[i]);
+        if (a == "--scale" && i + 1 < argc)
             scale = (float) juce::String (argv[++i]).getDoubleValue();
+        else if (a == "--reference" && i + 1 < argc)
+            reference = juce::File::getCurrentWorkingDirectory().getChildFile (argv[++i]);
+        else if (a == "--master" && i + 1 < argc)
+            master = juce::File::getCurrentWorkingDirectory().getChildFile (argv[++i]);
         else
             take = juce::File::getCurrentWorkingDirectory().getChildFile (argv[i]);
     }
@@ -60,8 +65,17 @@ int main (int argc, char** argv)
         waitIdle (state, 60000);
         if (take.existsAsFile())
         {
+            state.reference = reference;
             state.analyse (take, true);
             waitIdle (state, 300000);
+            // a backup (so the Tools page has something to say) and a batch list
+            state.batchChain = paths.reaperChains().getChildFile ("Rap Lead.RfxChain");
+            state.batchFiles.add (take);
+        }
+        if (master.existsAsFile())
+        {
+            state.previewMaster (master);
+            waitIdle (state, 120000);
         }
         auto shot = [&] (int section, const juce::String& name, int height)
         {
@@ -78,8 +92,9 @@ int main (int argc, char** argv)
         };
         shot (overview, "overview", 900);
         shot (plugins, "plugins", 1180);
-        shot (profile, "voice-profile", take.existsAsFile() ? 1900 : 860);
+        shot (profile, "voice-profile", take.existsAsFile() ? 2050 : 860);
         shot (chains, "chains", 1500);
+        shot (studio, "tools", 1250);
         shot (workstation, "workstation", 1400);
         main.show (overview);
     }

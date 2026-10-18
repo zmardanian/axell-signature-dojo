@@ -98,15 +98,19 @@ double AudioEngine::recordedSeconds() const
     return (double) recordedSamples.load() / juce::jmax (1.0, deviceRate);
 }
 
-void AudioEngine::setPlayback (const juce::AudioBuffer<float>& original, const juce::AudioBuffer<float>& processed, double sampleRate)
+void AudioEngine::setPlayback (const juce::AudioBuffer<float>& original, const juce::AudioBuffer<float>& processed, double sampleRate,
+                               bool keepPosition)
 {
     juce::AudioBuffer<float> a (original), b (processed.getNumSamples() > 0 ? processed : original);
     const juce::SpinLock::ScopedLockType sl (playLock);
     bufA = std::move (a);
     bufB = std::move (b);
     playRate = sampleRate;
-    readPos = 0.0;
-    posSeconds = 0.0;
+    if (! keepPosition)
+    {
+        readPos = 0.0;
+        posSeconds = 0.0;
+    }
 }
 
 void AudioEngine::play() { playing = true; }
@@ -148,6 +152,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* in, int 
     const float target = wantProcessed.load() ? 1.0f : 0.0f;
     const float fadeStep = 1.0f / (float) (0.02 * deviceRate);   // 20 ms crossfade between A and B
     const int len = juce::jmin (bufA.getNumSamples(), bufB.getNumSamples());
+    const float gB = gainB.load();
     for (int i = 0; i < n; ++i)
     {
         if (readPos >= (double) (len - 1))
@@ -165,7 +170,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* in, int 
                 continue;
             const int src = juce::jmin (c, bufA.getNumChannels() - 1);
             const float a = bufA.getSample (src, k) + fr * (bufA.getSample (src, k + 1) - bufA.getSample (src, k));
-            const float b = bufB.getSample (src, k) + fr * (bufB.getSample (src, k + 1) - bufB.getSample (src, k));
+            const float b = (bufB.getSample (src, k) + fr * (bufB.getSample (src, k + 1) - bufB.getSample (src, k))) * gB;
             out[c][i] = a + (b - a) * mixB;
         }
         readPos += step;

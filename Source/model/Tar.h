@@ -190,7 +190,7 @@ inline Result read (const uint8_t* data, size_t size)
         const auto clean = detail::safePath (name);
         if (clean.empty())
         {
-            if (isDir && name.find_first_not_of ("./") == std::string::npos && name.front() == '.')   // "./" itself
+            if (isDir && ! name.empty() && name.find_first_not_of ("./") == std::string::npos && name.front() == '.')   // "./" itself
             {
                 pos = dataPos + padded;
                 continue;

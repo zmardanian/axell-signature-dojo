@@ -3,6 +3,7 @@
 // the installed plugins, then (when asked) write the plugins' presets and a REAPER chain (docs/DESIGN.md, D12-D13).
 #include "Chains.h"
 #include "Paths.h"
+#include "../model/ToneMatch.h"
 #include "../model/VoiceMapping.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -33,7 +34,13 @@ struct ProfileOutcome
     std::vector<StageOutcome> stages;
     std::vector<BuiltStage> built;            // the tuned plugins (for writing); empty if not tuned
     juce::AudioBuffer<float> processed;       // the take through the tuned chain (for listening / display)
+    std::vector<juce::AudioBuffer<float>> stageAudio;   // the take after each stage (takes up to 5 min), for step-through listening
     double sampleRate = 48000.0;
+    // Reference Match (D16): the tone difference to a reference vocal before and after the tuned Penta EQ (dB RMS,
+    // 120 Hz-10 kHz, shape only), measured on the rendered take
+    juce::File reference;
+    std::vector<tone::Bell> bells;
+    float toneBeforeDb = 0.0f, toneAfterDb = 0.0f;
 };
 
 class ProfileEngine
@@ -46,7 +53,9 @@ public:
                           double maxSeconds = 600.0);
 
     // analysis + plan; `tune` also renders through the installed plugins (seconds to a minute or two)
-    ProfileOutcome run (const juce::File& take, bool tune, const Progress&, const std::atomic<bool>* cancel = nullptr) const;
+    // `reference`: an optional vocal whose tone the Penta EQ step moves toward (`amount` 0..1)
+    ProfileOutcome run (const juce::File& take, bool tune, const Progress&, const std::atomic<bool>* cancel = nullptr,
+                        const juce::File& reference = {}, float amount = 1.0f) const;
 
     struct WriteOptions
     {

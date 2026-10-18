@@ -245,7 +245,9 @@ void AppState::analyse (const juce::File& takeFile, bool tune)
     writeLog.clear();
     profileProgress = 0.0f;
     take = takeFile;
-    run (tune ? "Tuning your chain" : "Analysing your take", [this, takeFile, tune] (const std::atomic<bool>& cancel)
+    const auto ref = reference;
+    const float amount = referenceAmount;
+    run (tune ? "Tuning your chain" : "Analysing your take", [this, takeFile, tune, ref, amount] (const std::atomic<bool>& cancel)
     {
         ProfileEngine eng (paths);
         auto outcome = std::make_shared<ProfileOutcome> (eng.run (takeFile, tune, [this] (float f, const juce::String& t)
@@ -256,7 +258,7 @@ void AppState::analyse (const juce::File& takeFile, bool tune)
                 profileStatus = t;
                 changed();
             });
-        }, &cancel));
+        }, &cancel, ref, amount));
         post ([this, outcome, tune]
         {
             if (outcome->ok)
@@ -322,6 +324,71 @@ void AppState::installChain (const ChainTemplate& t)
             chainStatus[id] = msg;
         });
     }, [this, id = t.id] { chainBusy[id] = false; });
+}
+
+juce::Array<juce::File> AppState::profileChains() const
+{
+    auto list = paths.reaperChains().findChildFiles (juce::File::findFiles, false, "* - Vocal Chain.RfxChain");
+    std::sort (list.begin(), list.end(), [] (const juce::File& a, const juce::File& b)
+               { return a.getLastModificationTime() > b.getLastModificationTime(); });
+    return list;
+}
+
+void AppState::openInReaper (const juce::File& chainFile, const juce::String& trackName)
+{
+    const auto r = ChainWriter (paths).openInReaper (chainFile, trackName);   // a file and a process start: instant
+    reaperMessage = r.message;
+    reaperMessageOk = r.ok;
+    changed();
+}
+
+//== tools =======================================================================================================
+void AppState::runBatch()
+{
+    if (batchBusy || batchFiles.isEmpty() || ! batchChain.existsAsFile())
+        return;
+    batchBusy = true;
+    batchResults.clear();
+    const auto files = batchFiles;
+    const auto chain = batchChain;
+    const auto out = batchOutput();
+    run ("Rendering " + juce::String (files.size()) + " files", [this, files, chain, out] (const std::atomic<bool>& cancel)
+    {
+        auto results = tools::batchRender (paths, chain, files, out, [this] (float f, const juce::String& t)
+        {
+            post ([this, f, t] { batchProgress = f; batchStatus = t; changed(); });
+        }, &cancel);
+        post ([this, results] { batchResults = results; });
+    }, [this] { batchBusy = false; batchStatus.clear(); });
+}
+
+void AppState::previewMaster (const juce::File& f)
+{
+    if (masterBusy)
+        return;
+    masterBusy = true;
+    masterError.clear();
+    run ("Measuring " + f.getFileName(), [this, f] (const std::atomic<bool>&)
+    {
+        auto m = std::make_shared<tools::MasterPreview> (tools::previewMaster (f));
+        post ([this, m] { if (m->ok) master = m; else masterError = m->error; });
+    }, [this] { masterBusy = false; });
+}
+
+void AppState::exportBackup (const juce::File& destination)
+{
+    const auto r = tools::exportBackup (paths, destination);
+    backupMessage = r.message;
+    backupOk = r.ok;
+    changed();
+}
+
+void AppState::importBackup (const juce::File& folder)
+{
+    const auto r = tools::importBackup (paths, folder);
+    backupMessage = r.message;
+    backupOk = r.ok;
+    refreshInstalled();
 }
 
 //== settings ====================================================================================================

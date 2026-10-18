@@ -72,6 +72,51 @@ inline const char* const kDuo = "Rap Lead";
 inline const char* const kVelvet = "Init";
 } // namespace programs
 
+// how far each measurement can be trusted on this take (D18): high, medium or low, and why
+struct Confidence
+{
+    enum class Level { high, medium, low };
+    const char* measure;   // "Loudness", "Background", "Pitch", "Esses", "Room", "Low end"
+    Level level = Level::high;
+    std::string why;
+};
+
+inline std::vector<Confidence> confidence (const Profile& p)
+{
+    using L = Confidence::Level;
+    std::vector<Confidence> c {
+        { "Loudness", L::high, {} }, { "Background", L::high, {} }, { "Pitch", L::high, {} },
+        { "Esses", L::high, {} }, { "Room", L::high, {} }, { "Low end", L::high, {} } };
+    auto lower = [] (Confidence& x, L l, const std::string& why)
+    {
+        if ((int) l > (int) x.level)
+            x.level = l;
+        x.why += (x.why.empty() ? "" : " ") + why;
+    };
+    const bool testedRate = p.sampleRate > 43000.0 && p.sampleRate < 97000.0;
+    if (! testedRate)
+        for (auto& x : c)
+            lower (x, L::medium, "Tested at 44.1-96 kHz; this take is " + detail::fmt ("%.0f", p.sampleRate) + " Hz.");
+    if (p.activeSeconds < 20.0)
+        for (auto& x : c)
+            lower (x, L::medium, "Only " + detail::fmt ("%.0f", p.activeSeconds) + " s of voice; 30-60 s measure steadier.");
+    if (p.clippedRuns > 0)
+        lower (c[0], L::low, "The take clips, so its true level is unknown.");
+    if (p.snrDb > 85.0f)
+        lower (c[1], L::medium, "The pauses are almost digital silence: the take may have been edited or gated.");
+    if (p.voicedHops < 1500)
+        lower (c[2], p.voicedHops < 500 ? L::low : L::medium, "Little pitched voice (" + std::to_string (p.voicedHops) + " voiced frames).");
+    if (p.sibilantHops < 200)
+        lower (c[3], p.sibilantHops < 80 ? L::low : L::medium, "Few esses in this take (" + std::to_string (p.sibilantHops) + " frames).");
+    if (p.processedTake)
+        lower (c[4], L::low, "Effects are printed into the take; the room cannot be measured.");
+    else if (p.snrDb < 25.0f)
+        lower (c[4], L::medium, "The background is close to the voice, so word endings are partly masked.");
+    if (p.seconds < 20.0)
+        lower (c[5], L::medium, "A short take shows little of the low end.");
+    return c;
+}
+
 inline Plan plan (const Profile& p)
 {
     using detail::fmt;

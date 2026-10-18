@@ -9,6 +9,8 @@
 #include "platform/Process.h"
 #include "platform/StateTools.h"
 #include "platform/SystemCheck.h"
+#include "platform/Tools.h"
+#include "WavIO.h"
 #include "platform/Suite.h"
 
 #include <cstdio>
@@ -117,12 +119,44 @@ static void testSuite()
         const auto c = suite.install (gate, bad, {});
         check (! c.ok && c.message.contains ("no checksum"), "an archive without a published checksum is refused");
     }
+    // the library check must run: without ldd, or with a failing one, nothing is installed
+    for (auto fake : { "/nonexistent/ldd", "false" })
+    {
+        Suite::lddProgram = fake;
+        const auto before = suite.installed (gate);
+        const auto nBackups = suite.backups (gate).size();
+        const auto r2 = suite.install (gate, rel[0], {});
+        check (! r2.ok && r2.message.contains ("could not be checked") && suite.installed (gate).version == before.version
+                   && suite.backups (gate).size() == nBackups, juce::String ("library check that cannot run (") + fake + ") stops the install: " + r2.message);
+    }
+    Suite::lddProgram = "ldd";
+    // an install stopped right after the swap (as if the Dojo were killed there) leaves a working plugin in place
+    {
+        Suite::stopAfterSwapForTest = true;
+        const auto r3 = suite.install (gate, rel[0], {});
+        Suite::stopAfterSwapForTest = false;
+        const auto in = suite.installed (gate);
+        bool ran = false;
+        check (! r3.ok && in.present && in.version == Version::parse ("2.0.0") && Suite::missingLibraries (in.bundle, ran).isEmpty() && ran
+                   && ! paths.vst3.getChildFile (gate.bundle).getChildFile ("Contents/x86_64-linux").findChildFiles (juce::File::findFiles, false, "*.so").isEmpty(),
+               "killed right after the swap: the plugin folder still holds a complete, working plugin");
+        paths.staging().deleteRecursively();   // what a stopped install leaves behind; the next install starts clean
+        check (suite.install (gate, rel[0], {}).ok, "the next install after an interrupted one works");
+    }
     // remove, then restore
+    const int backupsBefore = suite.backups (gate).size();
     r = suite.uninstall (gate);
-    check (r.ok && ! suite.installed (gate).present && suite.backups (gate).size() == 2, "remove keeps a copy: " + r.message);
+    check (r.ok && ! suite.installed (gate).present && suite.backups (gate).size() == juce::jmin (backupsBefore + 1, Suite::kBackupsKept),
+           "remove keeps a copy: " + r.message);
     auto bk = suite.backups (gate);
     r = suite.restore (gate, bk[0]);
     check (r.ok && suite.installed (gate).present && suite.installed (gate).version == Version::parse ("2.0.0"), "restore: " + r.message);
+    {
+        // restoring over an installed version swaps them atomically and keeps the replaced one as a backup
+        const auto n = suite.backups (gate).size();
+        const auto rr = suite.restore (gate, suite.backups (gate)[0]);
+        check (rr.ok && suite.installed (gate).present && suite.backups (gate).size() == n, "restore over an installed version keeps it as a backup: " + rr.message);
+    }
     // backups are pruned to the newest few
     for (int i = 0; i < 5; ++i)
         suite.install (gate, rel[0], {});
@@ -231,7 +265,7 @@ static int parseChain (const juce::String& text, juce::StringArray& programs)
     lines.addLines (text);
     int ok = 0;
     for (int i = 0; i < lines.size(); ++i)
-        if (lines[i].startsWith ("<VST "))
+        if (lines[i].trimStart().startsWith ("<VST "))
         {
             std::vector<std::string> body;
             for (++i; i < lines.size() && lines[i].trim() != ">"; ++i)
@@ -271,6 +305,20 @@ static void testTemplates()
         check (w.ok && w.file.isAChildOf (sandbox.configHome), "template \"" + t.name + "\" written: " + w.message);
     }
     // a file the user made in that folder is never replaced; one the Dojo wrote is
+    // a project with the chain on an armed vocal track; in a sandbox nothing is launched, nothing replaced
+    {
+        const auto chainFile = sandbox.reaperChains().getChildFile ("Rap Lead.RfxChain");
+        const auto proj = ChainWriter::projectText ("Vocal - Test", chainFile.loadFileAsString());
+        juce::StringArray progs;
+        check (proj.startsWith ("<REAPER_PROJECT") && proj.contains ("NAME \"Vocal - Test\"") && proj.contains ("    REC 1 0 0 0 0 0 0 0\n")
+                   && parseChain (proj, progs) == 5, "REAPER project: named, armed track holding the five plugins");
+        juce::File p1, p2;
+        const auto r1 = cw.openInReaper (chainFile, "Vocal - Test", &p1);
+        const auto r2 = cw.openInReaper (chainFile, "Vocal - Test", &p2);
+        check (r1.ok && r2.ok && p1.existsAsFile() && p2.existsAsFile() && p1 != p2 && p1.isAChildOf (sandbox.home)
+                   && r1.message.startsWith ("Sandbox"), "Open in REAPER (sandbox): projects written, never replaced, REAPER not launched");
+        check (! cw.openInReaper (sandbox.reaperChains().getChildFile ("missing.RfxChain"), "x").ok, "Open in REAPER refuses a chain that was not saved");
+    }
     const auto mine = sandbox.reaperChains().getChildFile ("Rap Lead.RfxChain");
     mine.replaceWithText ("my own edit", false, false, "\n");
     check (! cw.write ("Rap Lead", "x").ok && mine.loadFileAsString() == "my own edit", "an edited chain file is never replaced");
@@ -415,6 +463,124 @@ static void testSystemCheck()
     check (all.size() >= 10, "workstation: " + juce::String ((int) all.size()) + " checks ran");
 }
 
+//== v2: Reference Match, step-through audio, chain loading, Batch Render, Backup, Streaming Preview ===============
+static void testV2()
+{
+    const auto home = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+    const auto take = home.getChildFile ("Desktop/dry vocal.wav");
+    if (! take.existsAsFile())
+    {
+        std::printf ("skip  no dry take on the Desktop\n");
+        return;
+    }
+    const auto real = Paths::fromEnvironment();
+    auto sandbox = Paths::sandbox (sandboxRoot.getChildFile ("v2"));
+    sandbox.vst3 = real.vst3;
+    sandbox.reaperConfig().createDirectory();
+    real.reaperConfig().getChildFile ("reaper-vstplugins64.ini").copyFileTo (sandbox.reaperConfig().getChildFile ("reaper-vstplugins64.ini"));
+
+    // a reference: the same voice through a known EQ (+4 dB at 3 kHz, -3 dB at 300 Hz)
+    const auto refFile = sandboxRoot.getChildFile ("reference.wav");
+    {
+        wavio::Audio a;
+        wavio::read (take.getFullPathName().toStdString(), a);
+        for (auto& ch : a.ch)
+        {
+            axell::Biquad hi, lo;
+            hi.setPeak (a.rate, 3000.0, 1.0, 4.0);
+            lo.setPeak (a.rate, 300.0, 1.2, -3.0);
+            for (auto& v : ch)
+                v = (float) lo.process (hi.process (v, 0), 0);
+        }
+        wavio::write (refFile.getFullPathName().toStdString(), a);
+    }
+    ProfileEngine eng (sandbox);
+    auto o = eng.run (take, true, {}, nullptr, refFile, 1.0f);
+    bool problems = false;
+    for (auto& st : o.stages)
+        problems |= st.problem.isNotEmpty();
+    check (o.ok && ! problems && o.bells.size() >= 2 && o.toneAfterDb < 0.5f * o.toneBeforeDb,
+           "Reference Match through the installed Penta EQ: tone difference " + juce::String (o.toneBeforeDb, 2) + " -> "
+               + juce::String (o.toneAfterDb, 2) + " dB RMS on the rendered take (" + juce::String ((int) o.bells.size()) + " bells)");
+    bool near3k = false;
+    for (auto& bl : o.bells)
+        near3k |= std::abs (std::log2 (bl.hz / 3000.0f)) < 0.35f && bl.gainDb > 1.5f;
+    check (near3k, "Reference Match: the reference's +4 dB at 3 kHz is found");
+    check (o.stageAudio.size() == 5 && o.stageAudio.back().getNumSamples() == o.processed.getNumSamples(),
+           "step-through: the take after each of the five plugins is kept");
+    for (auto& st : o.stages)
+        if (st.product != nullptr)
+            check (std::abs (st.outLufs - st.inLufs) < 0.15f, st.product->name + ": loudness kept with the reference match");
+    eng.write (o, { "V2 Voice", true, true, true });
+    const auto chainFile = sandbox.reaperChains().getChildFile ("V2 Voice - Vocal Chain.RfxChain");
+
+    // a saved chain loads back with the same settings
+    {
+        auto loaded = tools::loadChain (sandbox, chainFile, 48000.0);
+        bool same = loaded.ok() && loaded.stages.size() == o.built.size();
+        for (size_t i = 0; same && i < loaded.stages.size(); ++i)
+            for (const char* param : { "Reduction", "Range", "HP Frequency", "Band 1 Gain", "FET Input", "Level", "Output" })
+                if (o.built[i].plugin->hasParameter (param))
+                    same &= loaded.stages[i].plugin->text (param) == o.built[i].plugin->text (param);
+        check (same, "a saved chain loads back as live plugins with the same settings (" + juce::String ((int) loaded.stages.size()) + " plugins)");
+        auto bad = sandboxRoot.getChildFile ("foreign.RfxChain");
+        bad.replaceWithText ("BYPASS 0 0 0\n<VST \"VST3: Other (X)\" \"Other.vst3\" 0 \"\" 1{0123456789ABCDEF0123456789ABCDEF} \"\"\n  AAAA\n>\n");
+        check (! tools::loadChain (sandbox, bad, 48000.0).ok(), "a chain with a foreign plugin is reported, not half-loaded silently");
+    }
+    // Batch Render
+    {
+        const auto out = sandboxRoot.getChildFile ("rendered");
+        juce::Array<juce::File> files { take, refFile };
+        auto res = tools::batchRender (sandbox, chainFile, files, out, {}, nullptr);
+        bool ok = res.size() == 2;
+        for (auto& r : res)
+            ok &= r.ok && r.output.existsAsFile() && r.output.isAChildOf (out);
+        check (ok, "Batch Render: two takes rendered through the chain into the output folder");
+        if (ok)
+            check (std::abs (res[0].outLufs - res[0].inLufs) < 0.3f && res[0].outTruePeakDbtp < 0.0f,
+                   "Batch Render: the take it was tuned on keeps its loudness (" + juce::String (res[0].inLufs, 2) + " -> " + juce::String (res[0].outLufs, 2)
+                       + " LUFS), peak " + juce::String (res[0].outTruePeakDbtp, 1) + " dBTP");
+        auto again = tools::batchRender (sandbox, chainFile, juce::Array<juce::File> { take }, out, {}, nullptr);
+        check (again.size() == 1 && again[0].ok && again[0].output != res[0].output, "Batch Render never replaces an earlier render");
+        wavio::Audio w;
+        check (ok && wavio::read (res[0].output.getFullPathName().toStdString(), w) && w.ch.size() == 2 && w.frames() > 48000 * 50,
+               "Batch Render output is a readable stereo WAV of the whole take");
+    }
+    // Backup & Move
+    {
+        const auto items = tools::backupItems (sandbox);
+        juce::File folder;
+        const auto ex = tools::exportBackup (sandbox, sandboxRoot.getChildFile ("usb"), &folder);
+        check (ex.ok && items.size() >= 6 && folder.getChildFile ("manifest.txt").existsAsFile(), "Backup: " + ex.message);
+        // another computer: a fresh sandbox; one file damaged in transit
+        auto other = Paths::sandbox (sandboxRoot.getChildFile ("other-computer"));
+        const auto victim = folder.getChildFile (items[0].relative);
+        victim.appendText ("x");
+        const auto im = tools::importBackup (other, folder);
+        check (! im.ok && im.message.contains ("1 damaged") && (int) tools::backupItems (other).size() == (int) items.size() - 1,
+               "Restore on another computer: every intact file copied, the damaged one skipped: " + im.message);
+        const auto im2 = tools::importBackup (other, folder);
+        check (im2.message.startsWith ("0 files restored"), "Restore again: nothing is replaced: " + im2.message);
+        auto fake = sandboxRoot.getChildFile ("not-a-backup");
+        fake.createDirectory();
+        fake.getChildFile ("manifest.txt").replaceWithText ("abc  ../../etc/passwd\n");
+        const auto im3 = tools::importBackup (other, fake);
+        check (! juce::File ("/etc/passwd.dojo").exists() && im3.message.contains ("not recognised"), "Restore ignores paths outside its own folders: " + im3.message);
+    }
+    // Streaming Preview on the artist's mix
+    {
+        const auto mix = home.getChildFile ("Desktop/axell suite on.wav");
+        if (mix.existsAsFile())
+        {
+            const auto m = tools::previewMaster (mix);
+            check (m.ok && m.services.size() == 5 && m.measurement.integratedLufs < 0.0f && m.measurement.integratedLufs > -40.0f,
+                   "Streaming Preview of the artist's mix: " + juce::String (m.measurement.integratedLufs, 1) + " LUFS, true peak "
+                       + juce::String (m.measurement.truePeakDbtp, 1) + " dBTP; Spotify " + juce::String (m.services[0].gainDb, 1) + " dB, Apple "
+                       + juce::String (m.services[1].gainDb, 1) + " dB");
+        }
+    }
+}
+
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI juce;
@@ -465,8 +631,59 @@ int main (int argc, char** argv)
         dir.getChildFile ("profile.RfxChain").replaceWithText (ChainWriter (withUid).chainText (o.built), false, false, "\n");
         dir.getChildFile ("profile.expect").replaceWithText (expect (o.built, &o.stages), false, false, "\n");
         dir.getChildFile ("profile-uid0.RfxChain").replaceWithText (ChainWriter (noUid).chainText (o.built), false, false, "\n");
+        dir.getChildFile ("profile-project.RPP").replaceWithText (ChainWriter::projectText ("Vocal - Dojo Verify", ChainWriter (withUid).chainText (o.built)), false, false, "\n");
+        dir.getChildFile ("profile-project.expect").replaceWithText (expect (o.built, &o.stages) + "ARM\t1\n", false, false, "\n");
         dir.getChildFile ("profile-uid0.expect").replaceWithText (expect (o.built, &o.stages), false, false, "\n");
         std::printf ("prepared %d chains in %s\n", (int) ChainTemplate::all().size() + 2, dir.getFullPathName().toRawUTF8());
+        return 0;
+    }
+    // De-Reverb presets as single-plugin REAPER chains, each loudness-matched on a take. The list is personal (takes,
+    // names), so it comes from a local file: one line per preset, "<take path>|<chain name>|<reduction %>"
+    if (argc > 2 && juce::String (argv[1]) == "--dereverb-presets")
+    {
+        const auto real = Paths::fromEnvironment();
+        const auto& prod = *Catalog::find ("dereverb");
+        struct P { juce::String take, name; float red; };
+        std::vector<P> list;
+        juce::StringArray lines;
+        juce::File::getCurrentWorkingDirectory().getChildFile (argv[2]).readLines (lines);
+        for (auto& l : lines)
+        {
+            const auto parts = juce::StringArray::fromTokens (l, "|", "");
+            if (parts.size() == 3)
+                list.push_back ({ parts[0].trim(), parts[1].trim(), (float) parts[2].getDoubleValue() });
+        }
+        ChainWriter cw (real);
+        juce::String lastTake;
+        juce::AudioBuffer<float> audio;
+        double rate = 48000.0;
+        float inL = 0;
+        for (const auto& e : list)
+        {
+            if (lastTake != e.take)
+            {
+                juce::String err;
+                if (! ProfileEngine::loadTake (juce::File::getCurrentWorkingDirectory().getChildFile (e.take), audio, rate, err)) { std::printf ("%s\n", err.toRawUTF8()); return 1; }
+                inL = ProfileEngine::lufs (audio, rate);
+                lastTake = e.take;
+            }
+            BuiltStage b;
+            b.product = &prod;
+            juce::String err;
+            b.plugin = HostedPlugin::load (real.vst3.getChildFile (prod.bundle), rate, 512, err);
+            if (b.plugin == nullptr) { std::printf ("%s\n", err.toRawUTF8()); return 1; }
+            b.plugin->set ("Reduction", juce::String (juce::roundToInt (e.red)) + " %");
+            b.plugin->set ("Output", "0.0 dB");
+            float out = ProfileEngine::lufs (b.plugin->render (audio), rate);
+            b.plugin->set ("Output", juce::String (inL - out, 1) + " dB");
+            out = ProfileEngine::lufs (b.plugin->render (audio), rate);
+            ChainWriter::capture (b, e.name.fromFirstOccurrenceOf ("De-Reverb - ", false, false));
+            std::vector<BuiltStage> one;
+            one.push_back (std::move (b));
+            const auto w = cw.write (e.name, cw.chainText (one));
+            std::printf ("%-48s Reduction %3.0f %%  Output %-8s  loudness %.2f -> %.2f LUFS  %s\n", e.name.toRawUTF8(), e.red,
+                         one[0].plugin->text ("Output").toRawUTF8(), inL, out, w.ok ? "saved" : w.message.toRawUTF8());
+        }
         return 0;
     }
     if (argc > 1 && juce::String (argv[1]) == "--programs")
@@ -486,6 +703,7 @@ int main (int argc, char** argv)
     testSystemCheck();
     testTemplates();
     testProfile();
+    testV2();
     if (! (argc > 1 && juce::String (argv[1]) == "--keep"))
         sandboxRoot.deleteRecursively();
     std::printf ("\n%d passed, %d failed\n", passed, failed);

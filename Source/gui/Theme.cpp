@@ -188,6 +188,17 @@ void icon (juce::Graphics& g, const juce::String& n, juce::Rectangle<float> r, j
         p.quadraticTo (11, 13, 2.5f, 12); p.quadraticTo (11, 11, 12, 2.5f); p.closeSubPath();
         fill = true;
     }
+    else if (n == "tools")
+    {
+        for (float x : { 6.0f, 12.0f, 18.0f })
+        {
+            p.startNewSubPath (x, 3.5f);
+            p.lineTo (x, 20.5f);
+        }
+        p.addRoundedRectangle (3.5f, 13.0f, 5.0f, 3.5f, 1.2f);
+        p.addRoundedRectangle (9.5f, 6.5f, 5.0f, 3.5f, 1.2f);
+        p.addRoundedRectangle (15.5f, 11.0f, 5.0f, 3.5f, 1.2f);
+    }
     else if (n == "arrow")
     {
         p.startNewSubPath (4, 12); p.lineTo (19.5f, 12);

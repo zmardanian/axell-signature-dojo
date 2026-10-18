@@ -29,7 +29,10 @@ public:
     int inputChannels() const { return numInputs.load(); }
 
     // playback
-    void setPlayback (const juce::AudioBuffer<float>& original, const juce::AudioBuffer<float>& processed, double sampleRate);
+    // `keepPosition`: swap what B plays without jumping (step-through listening)
+    void setPlayback (const juce::AudioBuffer<float>& original, const juce::AudioBuffer<float>& processed, double sampleRate,
+                      bool keepPosition = false);
+    void setGainB (float linear) { gainB = linear; }   // B played at this gain (how a streaming service plays a master)
     void play();
     void stop();
     bool isPlaying() const { return playing.load(); }
@@ -37,6 +40,7 @@ public:
     void seek (double seconds);
     void setProcessed (bool useProcessed) { wantProcessed = useProcessed; }
     bool processedSelected() const { return wantProcessed.load(); }
+    const void* owner = nullptr;              // the page whose audio is loaded (message thread only)
 
 private:
     void audioDeviceIOCallbackWithContext (const float* const* in, int numIn, float* const* out, int numOut, int n,
@@ -63,6 +67,7 @@ private:
     std::atomic<double> posSeconds { 0.0 };
     std::atomic<double> seekTo { -1.0 };
     std::atomic<bool> playing { false }, wantProcessed { true };
+    std::atomic<float> gainB { 1.0f };
     float mixB = 1.0f;                         // crossfade 0 = original, 1 = processed
 };
 } // namespace dojo::gui

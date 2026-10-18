@@ -1,6 +1,8 @@
 // Axell Signature Dojo - model tests (JUCE-free: the model headers exactly as the app compiles them).
 // Run from the repository root: build/DojoCoreTests
 #include "model/ReaperChunk.h"
+#include "model/Streaming.h"
+#include "model/ToneMatch.h"
 #include "model/Tar.h"
 #include "model/Version.h"
 #include "model/VoiceAnalysis.h"
@@ -91,6 +93,8 @@ static void testTar()
                    && std::string (t.data() + r.entries[1].offset, 10) == "ELF-binary" && r.entries[2].path == "A-1.0.0/README.txt",
                "tar: reads files and directories, normalises ./");
     }
+    check (! readTar (entry ("", "", '5') + end()).ok(), "tar: a directory entry with an empty name is rejected (it used to read past an empty string)");
+    check (! readTar (entry ("", "abc") + end()).ok(), "tar: a file entry with an empty name is rejected");
     check (! readTar (entry ("../evil", "x") + end()).ok(), "tar: rejects .. paths");
     check (! readTar (entry ("a/../../evil", "x") + end()).ok(), "tar: rejects .. inside a path");
     check (! readTar (entry ("/etc/passwd", "x") + end()).ok(), "tar: rejects absolute paths");
@@ -395,6 +399,95 @@ static void testMapping()
     check (find (plan (p).chain[2], "HP Frequency") == "75.0 Hz", "plan: no pitch measured -> a safe 75 Hz high-pass");
 }
 
+//== Reference Match =============================================================================================
+static void testToneMatch()
+{
+    using namespace dojo;
+    // a take curve and a reference that is the same voice with three known bells: the fit must find them
+    voice::Curve take;
+    for (float f = 40.0f; f <= 16000.0f; f *= std::pow (2.0f, 1.0f / 12.0f))
+    {
+        take.hz.push_back (f);
+        take.db.push_back (-6.0f * std::log2 (f / 500.0f) * (f > 500.0f ? 1.0f : -0.5f));   // a voice-like tilt
+    }
+    const std::vector<tone::Bell> truth { { 300.0f, -3.0f, 1.2f }, { 3000.0f, 4.0f, 1.0f }, { 9000.0f, 2.5f, 0.8f } };
+    voice::Curve ref = take;
+    for (size_t i = 0; i < ref.hz.size(); ++i)
+        for (const auto& b : truth)
+            ref.db[i] += (float) tone::detail::bellDb (ref.hz[i], b);
+    const auto m = tone::match (take, ref);
+    check (m.bells.size() >= 3 && m.residualRmsDb < 0.35f * m.targetRmsDb,
+           "Reference Match: three known bells recovered (" + std::to_string (m.bells.size()) + " bells, difference " + num (m.targetRmsDb)
+               + " -> " + num (m.residualRmsDb) + " dB RMS)");
+    bool found3k = false;
+    for (const auto& b : m.bells)
+        found3k |= std::abs (std::log2 (b.hz / 3000.0f)) < 0.25f && b.gainDb > 2.0f;
+    check (found3k, "Reference Match: the +4 dB at 3 kHz is found near 3 kHz");
+    const auto same = tone::match (take, take);
+    check (same.bells.empty() && same.targetRmsDb < 0.01f, "Reference Match: the same voice needs no bells");
+    // loudness never matters: the reference 10 dB louder everywhere gives the same plan
+    auto louder = ref;
+    for (auto& d : louder.db)
+        d += 10.0f;
+    check (std::abs (tone::match (take, louder).targetRmsDb - m.targetRmsDb) < 0.01f, "Reference Match: only the shape counts, not the level");
+    const auto half = tone::match (take, ref, 0.5f);
+    check (std::abs (half.targetRmsDb - 0.5f * m.targetRmsDb) < 0.05f, "Reference Match: amount 50 % halves the target");
+}
+
+//== Streaming Preview ===========================================================================================
+static void testStreaming()
+{
+    using namespace dojo::streaming;
+    const double fs = 48000.0;
+    auto sine = [&] (float dbfs, double seconds)
+    {
+        std::vector<float> v ((size_t) (seconds * fs));
+        for (size_t i = 0; i < v.size(); ++i)
+            v[i] = (float) (std::pow (10.0, dbfs / 20.0) * std::sqrt (2.0) * std::sin (2.0 * 3.14159265358979 * 997.0 * i / fs));
+        return v;
+    };
+    // a loud master: -8 LUFS stereo (two channels of a -11 dBFS RMS sine)
+    {
+        auto x = sine (-11.0f, 20.0);
+        const float* p[2] = { x.data(), x.data() };
+        const auto m = measure (p, 2, x.size(), fs);
+        check (std::abs (m.integratedLufs + 8.0f) < 0.15f && std::abs (m.truePeakDbtp - (-11.0f + 3.01f)) < 0.1f,
+               "streaming: -8 LUFS, true peak " + num (m.truePeakDbtp) + " dBTP measured");
+        const auto pb = playback (m);
+        check (std::abs (pb[0].gainDb + 6.0f) < 0.2f && std::abs (pb[1].gainDb + 8.0f) < 0.2f && std::abs (pb[2].gainDb + 6.0f) < 0.2f,
+               "streaming: a loud master is turned down (Spotify " + num (pb[0].gainDb) + ", Apple " + num (pb[1].gainDb) + " dB)");
+    }
+    // a quiet master: -20 LUFS with a high crest: Spotify turns it up only to -1 dBTP, YouTube leaves it
+    {
+        auto x = sine (-23.0f, 20.0);
+        for (size_t i = 0; i < x.size(); i += 4800)
+            x[i] = 0.5f;   // short peaks at -6 dBFS
+        const float* p[2] = { x.data(), x.data() };
+        const auto m = measure (p, 2, x.size(), fs);
+        const auto pb = playback (m);
+        check (pb[0].gainDb > 0.0f && m.truePeakDbtp + pb[0].gainDb <= -1.0f + 0.01f && pb[2].gainDb == 0.0f,
+               "streaming: a quiet master: Spotify +" + num (pb[0].gainDb) + " dB (peak stays under -1 dBTP), YouTube 0 dB");
+    }
+}
+
+//== confidence ==================================================================================================
+static void testConfidence()
+{
+    using namespace dojo::voice;
+    Profile p;
+    p.sampleRate = 48000.0; p.seconds = 60.0; p.activeSeconds = 45.0; p.voicedHops = 15000; p.sibilantHops = 900; p.snrDb = 50.0f;
+    bool allHigh = true;
+    for (auto& c : confidence (p))
+        allHigh &= c.level == Confidence::Level::high;
+    check (allHigh, "confidence: a full, clean take is trusted everywhere");
+    p.processedTake = true;
+    p.sibilantHops = 40;
+    p.clippedRuns = 2;
+    const auto c = confidence (p);
+    check (c[0].level == Confidence::Level::low && c[3].level == Confidence::Level::low && c[4].level == Confidence::Level::low
+               && c[2].level == Confidence::Level::high, "confidence: clipping, few esses and printed effects lower exactly those measures");
+}
+
 int main()
 {
     testVersion();
@@ -402,6 +495,9 @@ int main()
     testReaper();
     testAnalysis();
     testMapping();
+    testToneMatch();
+    testStreaming();
+    testConfidence();
     std::printf ("\n%d passed, %d failed\n", passed, failed);
     return failed == 0 ? 0 : 1;
 }

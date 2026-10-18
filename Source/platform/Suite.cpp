@@ -5,6 +5,7 @@
 #include <juce_cryptography/juce_cryptography.h>
 
 #include <cerrno>
+#include <fcntl.h>
 #include <cstdio>
 #include <sys/stat.h>
 
@@ -54,6 +55,12 @@ bool moveDir (const juce::File& from, const juce::File& to)
     }
     from.deleteRecursively();
     return true;
+}
+
+// the two paths trade places atomically (both must exist); false if the filesystem cannot do it
+bool exchange (const juce::File& a, const juce::File& b)
+{
+    return ::renameat2 (AT_FDCWD, a.getFullPathName().toRawUTF8(), AT_FDCWD, b.getFullPathName().toRawUTF8(), RENAME_EXCHANGE) == 0;
 }
 
 bool isLink (const juce::File& f)
@@ -125,16 +132,20 @@ juce::StringArray Suite::missingLibraries (const juce::File& bundle, bool& ran)
 {
     juce::StringArray missing;
     ran = false;
-    for (const auto& so : bundle.getChildFile ("Contents/x86_64-linux").findChildFiles (juce::File::findFiles, false, "*.so"))
+    const auto binaries = bundle.getChildFile ("Contents/x86_64-linux").findChildFiles (juce::File::findFiles, false, "*.so");
+    for (const auto& so : binaries)
     {
-        const auto r = Process::run ({ "ldd", so.getFullPathName() }, 15000);
-        if (! r.started)
+        const auto r = Process::run ({ lddProgram, so.getFullPathName() }, 15000);
+        if (! r.ok())
+        {
+            ran = false;   // missing, failed or timed out: the check did not happen
             return missing;
-        ran = true;
+        }
         for (auto line : juce::StringArray::fromLines (r.output))
             if (line.contains ("=> not found"))
                 missing.addIfNotAlreadyThere (line.upToFirstOccurrenceOf ("=>", false, false).trim());
     }
+    ran = ! binaries.isEmpty();
     return missing;
 }
 
@@ -364,6 +375,8 @@ StepResult Suite::stage (const Product& p, const Release& rel, juce::File& stage
         return { false, "The bundle is not an Axell Yobag plugin." };
     bool ran = false;
     const auto missing = missingLibraries (stagedBundle, ran);
+    if (! ran)
+        return { false, "The plugin's libraries could not be checked (ldd is missing or failed), so nothing was installed." };
     if (! missing.isEmpty())
         return { false, "This system lacks libraries the plugin needs: " + missing.joinIntoString (", ")
                         + ". Nothing was installed." };
@@ -434,22 +447,38 @@ StepResult Suite::install (const Product& p, const Release& rel, const ProgressF
         return { false, "Cannot create " + paths.vst3.getFullPathName() };
     const auto target = paths.vst3.getChildFile (p.bundle);
     const auto before = installed (p);
-    bool backedUp = false;
-    if (existsOrLink (target))
+    juce::String note;
+    if (existsOrLink (target) && exchange (staged, target))
     {
+        // the new version is in place; the old one now sits where the staged bundle was
+        if (stopAfterSwapForTest)
+            return { false, "stopped after the swap (test)" };
+        if (auto b = moveToBackup (p, staged); ! b.ok)
+            note = " The previous version could not be kept as a backup.";
+    }
+    else if (existsOrLink (target))
+    {
+        // no atomic exchange on this filesystem: aside, then in; put it back if the second step fails
         if (auto b = moveToBackup (p, target); ! b.ok)
         {
             stageRoot.deleteRecursively();
             return b;
         }
-        backedUp = true;
-    }
-    if (! moveDir (staged, target))
-    {
-        // put the previous version back exactly where it was
-        if (backedUp)
-            if (auto list = backups (p); ! list.isEmpty() && moveDir (list[0].folder, target))
+        if (! moveDir (staged, target))
+        {
+            stageRoot.deleteRecursively();
+            auto list = backups (p);
+            if (! list.isEmpty() && moveDir (list[0].folder, target))
+            {
                 list[0].folder.getParentDirectory().deleteRecursively();
+                return { false, "Could not place the new version; the previous one is back in place." };
+            }
+            return { false, "Could not place the new version, and the previous one could not be put back: restore it from "
+                            "Versions > Earlier versions." };
+        }
+    }
+    else if (! moveDir (staged, target))
+    {
         stageRoot.deleteRecursively();
         return { false, "Could not place the plugin in " + paths.vst3.getFullPathName() + ". Nothing changed." };
     }
@@ -457,8 +486,9 @@ StepResult Suite::install (const Product& p, const Release& rel, const ProgressF
     pruneBackups (p);
     if (progress) progress (1.0f, "Installed");
     juce::String msg = p.name + " " + ver + " is installed.";
-    if (before.present && before.version.valid)
+    if (before.present && before.version.valid && note.isEmpty())
         msg << " Version " << juce::String (before.version.toString()) << " is kept as a backup.";
+    msg << note;
     return { true, msg };
 }
 
@@ -479,15 +509,27 @@ StepResult Suite::restore (const Product& p, const Backup& b) const
         return { false, "That backup no longer exists." };
     const auto target = paths.vst3.getChildFile (p.bundle);
     const auto holder = b.folder.getParentDirectory();
+    const auto label = juce::String (b.version.valid ? b.version.toString() : "");
+    if (existsOrLink (target) && exchange (b.folder, target))
+    {
+        // the backup is in place; the version that was installed now sits in the backup's folder: name it after itself
+        const auto v = isLink (b.folder) && ! b.folder.exists() ? Version() : bundleVersion (b.folder);
+        auto newHolder = holder.getSiblingFile ((v.valid ? juce::String (v.toString()) : juce::String ("unknown")) + "_" + timestamp());
+        for (int i = 2; newHolder.exists(); ++i)
+            newHolder = holder.getSiblingFile (newHolder.getFileName() + "-" + juce::String (i));
+        ::rename (holder.getFullPathName().toRawUTF8(), newHolder.getFullPathName().toRawUTF8());
+        pruneBackups (p);
+        return { true, p.name + " " + label + " is restored." };
+    }
     // the current version becomes a backup itself, so a restore can be undone too
     if (existsOrLink (target))
         if (auto r = moveToBackup (p, target); ! r.ok)
             return r;
     paths.vst3.createDirectory();
     if (! moveDir (b.folder, target))
-        return { false, "Could not restore the backup." };
+        return { false, "Could not restore the backup; the version that was installed is kept in Earlier versions." };
     holder.deleteRecursively();
     pruneBackups (p);
-    return { true, p.name + " " + juce::String (b.version.valid ? b.version.toString() : "") + " is restored." };
+    return { true, p.name + " " + label + " is restored." };
 }
 } // namespace dojo
