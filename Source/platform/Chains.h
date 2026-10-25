@@ -51,6 +51,7 @@ public:
     // the .RfxChain text; and writing it to REAPER's FX chain folder ("Axell Signature/<name>.RfxChain") without
     // ever replacing a file the Dojo did not write
     juce::String chainText (const std::vector<BuiltStage>&) const;
+    juce::String chainText (const std::vector<const BuiltStage*>&) const;   // a selection of stages
     struct Written
     {
         bool ok = false;

@@ -266,7 +266,7 @@ inline Profile analyse (const float* const* x, int numChannels, size_t n, double
 
     // detector pass: pitch, sibilance; room model on the 60 Hz high-passed signal
     axell::voice::SibilanceDetector det;
-    det.prepare (fs);
+    det.prepare (fs, axell::voice::DetectorConfig::velvet3());   // Velvet 3.0's network: 111 voices (D22)
     RoomModel room;
     room.prepare (fs, det.hopSize());
     axell::Biquad roomHp;

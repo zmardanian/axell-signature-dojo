@@ -28,7 +28,9 @@ struct Tune
         fetPeakGr,      // FET Input so the 95th percentile of the FET's gain reduction is `target` dB
         optoMedianGr,   // Opto Peak Reduction so the opto's median gain reduction is `target` dB
         matchLoudness,  // `param` (an output gain) so the plugin's output loudness equals its input loudness
-        learnLevel      // Velvet's LEVEL as its LEARN would set it: -18 LUFS minus the loudness at its input
+        learnLevel,     // Velvet's LEVEL as its LEARN would set it: -18 LUFS minus the loudness at its input
+        deessAmount     // Velvet's AMOUNT: the lowest that brings the esses' loud end (90th percentile, dB re the voice
+                        // body) down to `target` - where natural speech has it (D23)
     };
     Kind kind;
     std::string param;
@@ -64,6 +66,10 @@ inline double round5 (double v) { return 5.0 * std::round (v / 5.0); }
 
 // The factory program names the plan starts from (as the plugins show them). Kept here so a test can check them
 // against the installed plugins.
+// where the esses of natural, well-recorded speech sit (D23): the 90th percentile of the sibilant hops' 2-17 kHz level
+// re the voice body, median over 111 voices (CMU ARCTIC + VCTK, Velvet 3.0's network; 80 % of the voices -12.3 .. -5.7)
+constexpr float kNaturalEssP90Db = -9.4f;
+
 namespace programs
 {
 inline const char* const kGate = "Rap Lead - Clean Gaps";
@@ -236,11 +242,13 @@ inline Plan plan (const Profile& p)
         else if (p.sibilantHops >= 50 && p.sShare <= 0.35f)
             focus = "SH";
         v.settings.push_back ({ "De-Ess Focus", focus });
-        v.settings.push_back ({ "De-Ess Amount", "50 %" });
+        v.settings.push_back ({ "De-Ess Amount", "50 %" });   // the starting point; tuned on the take below
         v.why.push_back (std::string ("Focus ") + focus + ": your esses sit at " + fmt ("%.1f", p.shHz / 1000.0) + " kHz (sh) and "
                          + fmt ("%.1f", p.sHz / 1000.0) + " kHz (s), " + fmt ("%.0f", 100.0 * p.sShare) + " % of their energy in the s.");
         v.tunes.push_back ({ Tune::Kind::learnLevel, "Level", -18.0f,
                              "LEVEL learned at Velvet's place in the chain (what its LEARN button does)." });
+        v.tunes.push_back ({ Tune::Kind::deessAmount, "De-Ess Amount", kNaturalEssP90Db,
+                             "AMOUNT set on your take: the gentlest setting that brings your esses to where natural speech has them." });
         v.tunes.push_back ({ Tune::Kind::matchLoudness, "Output", 0.0f, "Output matched to the input loudness." });
         out.chain.push_back (v);
     }

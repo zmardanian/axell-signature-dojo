@@ -17,6 +17,10 @@ const std::vector<ChainTemplate>& ChainTemplate::all()
         { "boom-bap-lead", "Boom Bap Lead", "Vocals", "Warm, gritty and upfront: the boom bap lead sound.",
           { S { "dereverb", "Natural", {} }, S { "gate", "Rap Lead - Clean Gaps", {} }, S { "penta", "Boom Bap Lead - Warm Grit", {} },
             S { "duo", "Vocal: Upfront Hip-Hop", {} }, S { "velvet", "Boom Bap Grit", {} } } },
+        { "tracking", "Tracking (Live)", "Vocals", "Record while you hear yourself through it: about 3 ms of plugin latency. "
+          "Gate at LIVE speed, forward EQ, FET + opto, Velvet's zero-latency de-esser; no De-Reverb (it needs look-ahead).",
+          { S { "gate", "Rap Lead - Clean Gaps", { { "Speed", "Live" } } }, S { "penta", "Rap Lead - Clean & Forward", {} },
+            S { "duo", "Rap Lead", {} }, S { "velvet", "Tracking - Warm Monitor", {} } } },
         { "doubles", "Doubles", "Vocals", "Tucks doubles behind the lead: tighter gate, thinner low end, more control.",
           { S { "gate", "Ad-Libs & Doubles", {} }, S { "penta", "Doubles - Tuck Behind", {} }, S { "duo", "Boom Bap Double", {} },
             S { "velvet", "Doubles & Stacks", {} } } },
@@ -91,9 +95,18 @@ void ChainWriter::capture (BuiltStage& b, const juce::String& presetName)
 
 juce::String ChainWriter::chainText (const std::vector<BuiltStage>& stages) const
 {
-    std::vector<reaper::ChainEntry> entries;
+    std::vector<const BuiltStage*> all;
     for (const auto& b : stages)
+        all.push_back (&b);
+    return chainText (all);
+}
+
+juce::String ChainWriter::chainText (const std::vector<const BuiltStage*>& stages) const
+{
+    std::vector<reaper::ChainEntry> entries;
+    for (const auto* bp : stages)
     {
+        const auto& b = *bp;
         reaper::ChainEntry e;
         e.plugin.name = (b.product->name + " (" + Catalog::kVendor + ")").toStdString();
         e.plugin.file = b.product->bundle.toStdString();

@@ -2,6 +2,7 @@
 #include "StateTools.h"
 
 #include <axell/dsp/Loudness.h>
+#include <axell/dsp/SibilanceDetector.h>
 
 namespace dojo
 {
@@ -24,6 +25,65 @@ float pctOf (std::vector<float> v, double p)
     const auto k = (size_t) std::clamp (p * (double) (v.size() - 1) + 0.5, 0.0, (double) (v.size() - 1));
     std::nth_element (v.begin(), v.begin() + (long) k, v.end());
     return v[k];
+}
+// the esses' level (D23): the sibilant hops of what Velvet receives (Velvet 3.0's network, p > 0.5, within 30 dB of
+// the loudest hop) and the voice body's level (90th percentile over clearly voiced hops); a hop's ess level is its
+// 2-17 kHz energy re that body. The same measure on 111 natural voices gives kNaturalEssP90Db.
+struct EssMap
+{
+    std::vector<int> hops;      // hop indices of the sibilant hops
+    float bodyRefDb = -140.0f;
+};
+
+std::vector<axell::voice::DetFrame> detectorFrames (const juce::AudioBuffer<float>& a, double rate)
+{
+    axell::voice::SibilanceDetector d;
+    d.prepare (rate, axell::voice::DetectorConfig::velvet3());
+    std::vector<axell::voice::DetFrame> out;
+    const float* l = a.getReadPointer (0);
+    const float* r = a.getReadPointer (juce::jmin (1, a.getNumChannels() - 1));
+    for (int i = 0; i < a.getNumSamples(); ++i)
+        if (d.push (0.5f * (l[i] + r[i])))
+            out.push_back (d.out());
+    return out;
+}
+
+float hfDb (const axell::voice::DetFrame& f)
+{
+    double e = 0.0;
+    for (int b = 0; b < axell::voice::kNumBands; ++b)
+        e += f.E[b];
+    return (float) (10.0 * std::log10 (e + 1.0e-30));
+}
+
+EssMap essMap (const std::vector<axell::voice::DetFrame>& in)
+{
+    EssMap m;
+    float loud = -140.0f;
+    for (const auto& f : in)
+        loud = std::max (loud, f.levelDb);
+    std::vector<float> body;
+    for (size_t k = 0; k < in.size(); ++k)
+    {
+        const auto& f = in[k];
+        if (f.p > 0.5f && f.levelDb > loud - 30.0f)
+            m.hops.push_back ((int) k);
+        else if (f.p < 0.3f && f.apRaw < 0.25f && f.levelDb > loud - 30.0f)
+            body.push_back (f.bodyDb);
+    }
+    if (! body.empty())
+        m.bodyRefDb = pctOf (body, 0.9);
+    return m;
+}
+
+// the 90th percentile of the ess level (dB re the input's voice body) in `out`, at the input's sibilant hops
+float essP90Db (const EssMap& m, const std::vector<axell::voice::DetFrame>& out)
+{
+    std::vector<float> lv;
+    for (int k : m.hops)
+        if (k < (int) out.size())
+            lv.push_back (hfDb (out[(size_t) k]) - m.bodyRefDb);
+    return lv.empty() ? -99.0f : pctOf (lv, 0.9);
 }
 } // namespace
 
@@ -322,6 +382,65 @@ ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Prog
                     so.why.add (t.why);
                     break;
                 }
+                case voice::Tune::Kind::deessAmount:
+                {
+                    // the gentlest AMOUNT (30-70 %; above, a lisp becomes likely) that brings the esses' loud end to where
+                    // natural speech has it, measured on the rendered excerpt; few esses: the plan's 50 % stays
+                    const auto ess = essMap (detectorFrames (excerpt, rate));
+                    auto show = [&]
+                    {
+                        for (auto& v : so.values)
+                            if (v.first == juce::String (t.param))
+                            {
+                                v.second = h.text (t.param);
+                                return;
+                            }
+                        so.values.push_back ({ t.param, h.text (t.param) });
+                    };
+                    if ((int) ess.hops.size() < 40)
+                    {
+                        show();
+                        so.why.add ("AMOUNT left at " + h.text (t.param) + ": the busiest 20 s hold too few esses ("
+                                    + juce::String ((int) ess.hops.size()) + " hops) to tune it on.");
+                        break;
+                    }
+                    const auto saved = h.text (t.param);
+                    auto measure = [&] (float a)
+                    {
+                        h.set (t.param, juce::String (a, 1) + " %");
+                        return essP90Db (ess, detectorFrames (h.render (excerpt, cancel), rate));
+                    };
+                    const float before = measure (0.0f);
+                    float chosen = 70.0f, after = 99.0f;
+                    for (float a = 30.0f; a <= 70.0f && ! cancelled(); a += 5.0f)
+                    {
+                        after = measure (a);
+                        say (base + span * (0.1f + 0.6f * (a - 30.0f) / 40.0f), "Tuning " + so.product->name + ": de-esser");
+                        if (after <= t.target)
+                        {
+                            chosen = a;
+                            break;
+                        }
+                    }
+                    if (cancelled())
+                    {
+                        h.set (t.param, saved);
+                        break;
+                    }
+                    h.set (t.param, juce::String (chosen, 1) + " %");
+                    show();
+                    const juce::String lvl = "the loud end of your esses " + juce::String (before, 1) + " -> " + juce::String (after, 1)
+                                             + " dB re your voice body (natural speech: " + juce::String (t.target, 1) + " dB, 111 voices)";
+                    if (before <= t.target)
+                        so.why.add ("AMOUNT 30 %, a light touch: your esses already sit where natural speech has them - " + lvl + ".");
+                    else if (after <= t.target)
+                        so.why.add ("AMOUNT " + juce::String ((int) chosen) + " %: the gentlest setting that brings your esses to where "
+                                    "natural speech has them - " + lvl + ".");
+                    else
+                        so.why.add ("AMOUNT 70 % (the most before a lisp becomes likely) - " + lvl + ". A bright mic or a close, "
+                                    "on-axis position makes esses this strong: angle the mic slightly or move back a little.");
+                    break;
+                }
                 case voice::Tune::Kind::matchLoudness:
                 {
                     for (int it = 0; it < 4 && ! cancelled(); ++it)
@@ -386,6 +505,8 @@ juce::StringArray ProfileEngine::preview (const ProfileOutcome& o, const WriteOp
                                                               .getChildFile (juce::File::createLegalFileName (w.name) + b.product->presetExt).getFullPathName());
     if (w.chain && ! o.built.empty())
         lines.add ("REAPER FX chain: " + paths.reaperChains().getChildFile (juce::File::createLegalFileName (w.name + " - Vocal Chain") + ".RfxChain").getFullPathName());
+    if (w.chain && w.tracking && ! o.built.empty())
+        lines.add ("REAPER tracking chain: " + paths.reaperChains().getChildFile (juce::File::createLegalFileName (w.name + " - Tracking Chain") + ".RfxChain").getFullPathName());
     if (w.profile)
         lines.add ("Profile: " + paths.profiles().getChildFile (juce::File::createLegalFileName (w.name) + ".json").getFullPathName());
     return lines;
@@ -420,6 +541,53 @@ juce::StringArray ProfileEngine::write (ProfileOutcome& o, const WriteOptions& w
     {
         ChainWriter cw (paths);
         lines.add (cw.write (name + " - Vocal Chain", cw.chainText (o.built)).message);
+    }
+    if (w.chain && w.tracking && ! o.built.empty())
+    {
+        // the tracking chain (D24): the same tuned plugins set for monitoring - Velvet's LIVE de-esser and Gate's LIVE
+        // speed (no look-ahead), De-Reverb left out (it needs a look-ahead of its own); each plugin's latency read
+        // after it was prepared in that setting. The mixing settings are restored afterwards.
+        ChainWriter cw (paths);
+        std::vector<const BuiltStage*> sel;
+        std::vector<std::pair<BuiltStage*, std::pair<juce::String, juce::String>>> restore;   // stage, (param, text)
+        int latency = 0;
+        const double rate = o.sampleRate;
+        juce::StringArray parts, missing;
+        auto toLive = [&] (BuiltStage& b, const juce::String& param, const juce::String& text, const juce::String& what)
+        {
+            const auto was = b.plugin->text (param);
+            if (b.plugin->set (param, text))
+                restore.push_back ({ &b, { param, was } });
+            else
+                missing.add (b.product->name + " has no " + what + " (an older version is installed)");
+        };
+        for (auto& b : o.built)
+        {
+            if (b.product->key == "dereverb")
+                continue;
+            if (b.product->key == "velvet")
+                toLive (b, "De-Ess Mode", "Live", "zero-latency de-esser");
+            if (b.product->key == "gate")
+                toLive (b, "Speed", "Live", "LIVE speed");
+            juce::AudioBuffer<float> blip (2, 512);
+            blip.clear();
+            b.plugin->render (blip, nullptr);
+            const int lat = juce::jmax (0, b.plugin->latency());
+            latency += lat;
+            parts.add (b.product->name + " " + juce::String (1000.0 * lat / rate, 1) + " ms");
+            ChainWriter::capture (b, name + " Tracking");
+            sel.push_back (&b);
+        }
+        auto res = cw.write (name + " - Tracking Chain", cw.chainText (sel));
+        lines.add (res.message);
+        if (res.ok)
+            lines.add ("Tracking chain: " + juce::String (1000.0 * latency / rate, 1) + " ms of plugin latency (" + parts.joinIntoString (", ")
+                       + "), plus your audio buffer (Workstation page). De-Reverb stays in the vocal chain for mixing."
+                       + (missing.isEmpty() ? juce::String() : " " + missing.joinIntoString ("; ") + "."));
+        for (auto& [b, pv] : restore)
+            b->plugin->set (pv.first, pv.second);
+        for (auto* b : sel)
+            ChainWriter::capture (*const_cast<BuiltStage*> (b), name);
     }
     if (w.profile)
     {

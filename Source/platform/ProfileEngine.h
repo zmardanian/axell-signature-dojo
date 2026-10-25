@@ -65,6 +65,9 @@ public:
     {
         juce::String name = "My Voice";
         bool presets = true, chain = true, profile = true;
+        // also "<name> - Tracking Chain": for recording while monitoring through the plugins - Velvet's LIVE de-esser,
+        // no De-Reverb (it needs look-ahead), and the chain's measured latency (D24)
+        bool tracking = true;
     };
     // writes into the plugins' preset folders, REAPER's FX chain folder and the Dojo's profile folder; returns a line
     // per file (written or refused, and why)

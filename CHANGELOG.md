@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0
+- **Voice Profile listens with Axell Velvet 3.0's detector** (trained on 111 voices instead of 3): better at the
+  rarer sibilants and at accents - Romanian ce / ci, ge / gi, j, ș - when it measures where your esses sit (D22).
+- **Velvet's AMOUNT tuned on your take:** the gentlest setting that brings your esses to where natural speech has them
+  (measured on 111 voices), instead of a fixed 50 %; the profile says how loud your esses were and where they land (D23).
+- **Tracking chain:** every Voice Profile also saves "<name> - Tracking Chain" for recording while you hear yourself
+  through the plugins - Velvet's zero-latency de-esser, Gate at LIVE speed, no De-Reverb - with its measured latency
+  (about 3 ms on the artist's setup). A ready-made "Tracking (Live)" chain on the Chains page too (D24).
+- Verified: core 64/64, platform 149/149, ASan/UBSan clean, REAPER chains 14/14 (the tracking chain and template included).
+
 ## 2.0.1
 - **Voice Profile, small noisy rooms:** when the room is small and the background sits less than 35 dB under the voice,
   De-Reverb is set to Clean (95 %) - measured on home recordings, where 95-100 % helped and lower settings left the

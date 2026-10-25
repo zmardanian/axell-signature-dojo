@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(AxellSignatureDojo VERSION 2.0.1)
+project(AxellSignatureDojo VERSION 2.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

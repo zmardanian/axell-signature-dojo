@@ -8,11 +8,13 @@ The home of the Axell Signature suite (Axell De-Reverb, Gate, Penta EQ, Duo Comp
 - **Voice Profile**: record or drop a dry take. The Dojo measures loudness, background noise, pitch, where your
   esses sit, the room's decay and the low end, plans the vocal chain, then tunes it by rendering your take through
   the installed plugins (compression amounts, Velvet's LEARN level, loudness matched at every stage). It saves
-  presets for Gate, Penta EQ, Duo Compressor and Velvet plus one REAPER FX chain - never replacing your own files.
+  presets for Gate, Penta EQ, Duo Compressor and Velvet plus a REAPER FX chain for mixing and a tracking chain for
+  recording (zero-latency de-esser, about 3 ms in all) - never replacing your own files. Velvet's de-esser amount is
+  set on your take: your esses end up where natural speech has them (111 voices).
 - **Open in REAPER**: a new REAPER project with an armed vocal track holding your chain, in one click.
 - **Step-through listening, Reference Match and confidence**: hear your take after each plugin; move your tone toward
   a reference vocal (measured on the rendered take); every measurement says how far to trust it.
-- **Chains**: nine ready-made REAPER FX chains (vocals, beats, master) from the plugins' factory presets.
+- **Chains**: ten ready-made REAPER FX chains (vocals, beats, master, tracking) from the plugins' factory presets.
 - **Tools**: Batch Render (many takes through one chain), Streaming Preview (what Spotify, Apple Music, YouTube,
   Tidal and Amazon Music do to your master, and how it sounds there), Backup & Move (checksum-verified, never
   overwriting).

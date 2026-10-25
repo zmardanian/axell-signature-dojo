@@ -385,7 +385,24 @@ static void testProfile()
         const float p95 = gr.empty() ? 0.0f : gr[(size_t) (0.95 * (gr.size() - 1))];
         check (std::abs (p95 - 6.0f) < 1.0f, "Duo FET re-measured on the whole take: 95th percentile GR " + juce::String (p95, 2) + " dB (target 6)");
     }
-    // write into the sandbox: four presets, one chain, one profile
+    // 2.1: Velvet's AMOUNT tuned to where natural speech has its esses (D23): 30-70 %, explained with the measurement
+    {
+        bool tuned = false;
+        juce::String why = vs.why.joinIntoString (" ");
+        for (auto& [k, t] : vs.values)
+            if (k == "De-Ess Amount")
+            {
+                const float a = t.retainCharacters ("0123456789.").getFloatValue();
+                tuned = a >= 30.0f && a <= 70.0f && std::fmod (a, 5.0f) == 0.0f;
+                std::printf ("      Velvet AMOUNT %s\n", t.toRawUTF8());
+            }
+        check (tuned && why.contains ("natural speech: -9.4 dB, 111 voices"), "Velvet AMOUNT tuned on the take (30-70 %) and explained");
+        int amounts = 0;
+        for (auto& [k, t] : vs.values)
+            amounts += k == "De-Ess Amount" ? 1 : 0;
+        check (amounts == 1, "Velvet AMOUNT listed once (the tuned value replaces the plan's start)");
+    }
+    // write into the sandbox: four presets, one chain, the tracking chain, one profile
     const auto lines = eng.write (o, { "Dojo Test Voice", true, true, true });
     for (auto& l : lines)
         std::printf ("      %s\n", l.toRawUTF8());
@@ -399,6 +416,17 @@ static void testProfile()
     check (chain.existsAsFile() && parseChain (chain.loadFileAsString(), progs) == 5 && progs.size() == 5 && progs[0] == "Dojo Test Voice",
            "profile: REAPER chain with five plugins, each named after the profile");
     check (sandbox.profiles().getChildFile ("Dojo Test Voice.json").existsAsFile(), "profile: profile file written");
+    // 2.1 (D24): the tracking chain - four plugins (no De-Reverb), named "<name> Tracking", Velvet in LIVE, Gate at
+    // LIVE speed, and the latency reported; the mixing chain's plugins are back in their mixing settings afterwards
+    {
+        const auto tr = sandbox.reaperChains().getChildFile ("Dojo Test Voice - Tracking Chain.RfxChain");
+        juce::StringArray tp;
+        check (tr.existsAsFile() && parseChain (tr.loadFileAsString(), tp) == 4 && tp.size() == 4 && tp[0] == "Dojo Test Voice Tracking",
+               "tracking chain: four plugins (no De-Reverb), each named \"<name> Tracking\"");
+        check (lines.joinIntoString ("\n").contains ("ms of plugin latency"), "tracking chain: its latency is reported");
+        check (o.built[4].plugin->text ("De-Ess Mode") == "Studio" && o.built[1].plugin->text ("Speed") != "Live",
+               "after writing: Velvet back in STUDIO, Gate back at its mixing speed");
+    }
     check (! real.reaperChains().getChildFile ("Dojo Test Voice - Vocal Chain.RfxChain").exists()
                && ! real.presetFolder ("AxellGate").getChildFile ("Dojo Test Voice.axgpreset").exists(),
            "nothing was written outside the sandbox");
@@ -617,7 +645,11 @@ int main (int argc, char** argv)
             ChainWriter cw (withUid);
             auto st = cw.build (t, problems);
             dir.getChildFile (t.id + ".RfxChain").replaceWithText (cw.chainText (st), false, false, "\n");
-            dir.getChildFile (t.id + ".expect").replaceWithText (expect (st, nullptr), false, false, "\n");
+            juce::String e = expect (st, nullptr);
+            for (size_t i = 0; i < t.stages.size(); ++i)   // the template's own settings (e.g. Gate's LIVE speed)
+                for (auto& [k, v] : t.stages[i].settings)
+                    e << "P\t" << (int) i << "\t" << k << "\t" << v << "\n";
+            dir.getChildFile (t.id + ".expect").replaceWithText (e, false, false, "\n");
         }
         ProfileEngine eng (withUid);
         auto o = eng.run (real.home.getChildFile ("Desktop/dry vocal.wav"), true, {});
@@ -634,7 +666,33 @@ int main (int argc, char** argv)
         dir.getChildFile ("profile-project.RPP").replaceWithText (ChainWriter::projectText ("Vocal - Dojo Verify", ChainWriter (withUid).chainText (o.built)), false, false, "\n");
         dir.getChildFile ("profile-project.expect").replaceWithText (expect (o.built, &o.stages) + "ARM\t1\n", false, false, "\n");
         dir.getChildFile ("profile-uid0.expect").replaceWithText (expect (o.built, &o.stages), false, false, "\n");
-        std::printf ("prepared %d chains in %s\n", (int) ChainTemplate::all().size() + 2, dir.getFullPathName().toRawUTF8());
+        // 2.1: the tracking chain as write() makes it - De-Reverb left out, Gate at LIVE speed, Velvet's LIVE de-esser,
+        // every tuned value kept
+        {
+            ProfileEngine::WriteOptions wo;
+            wo.name = "Dojo Verify";
+            wo.presets = wo.profile = false;
+            eng.write (o, wo);
+            withUid.reaperChains().getChildFile ("Dojo Verify - Tracking Chain.RfxChain").copyFileTo (dir.getChildFile ("profile-tracking.RfxChain"));
+            juce::String e;
+            int k = 0;
+            for (size_t i = 0; i < o.built.size(); ++i)
+            {
+                const auto& b = o.built[i];
+                if (b.product->key == "dereverb")
+                    continue;
+                e << "FX\t" << k << "\t" << b.product->name << "\tDojo Verify Tracking\n";
+                for (auto& [pk, pv] : o.stages[i].values)
+                    e << "P\t" << k << "\t" << pk << "\t" << pv << "\n";
+                if (b.product->key == "gate")
+                    e << "P\t" << k << "\tSpeed\tLive\n";
+                if (b.product->key == "velvet")
+                    e << "P\t" << k << "\tDe-Ess Mode\tLive\n";
+                ++k;
+            }
+            dir.getChildFile ("profile-tracking.expect").replaceWithText (e, false, false, "\n");
+        }
+        std::printf ("prepared %d chains in %s\n", (int) ChainTemplate::all().size() + 3, dir.getFullPathName().toRawUTF8());
         return 0;
     }
     // De-Reverb presets as single-plugin REAPER chains, each loudness-matched on a take. The list is personal (takes,
