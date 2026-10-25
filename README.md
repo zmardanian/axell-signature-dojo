@@ -19,7 +19,8 @@ The home of the Axell Signature suite (Axell De-Reverb, Gate, Penta EQ, Duo Comp
 - **Workstation**: system, plugin folder, DAWs (native and Flatpak), REAPER's plugin path and scan, PipeWire buffer,
   realtime priority, system effects. Checks only read; fixes run in your account after you confirm.
 
-Terminal: `--check` (workstation report), `--profile <take> [--reference <vocal>] [--name N] [--save [--open]]`. `AXELL_DOJO_SANDBOX=<dir>` keeps
+Terminal: `--check` (workstation report), `--profile <take> [--reference <vocal>] [--name N] [--reduction %] [--gate-range dB] [--save [--open]]`,
+`--render <chain.RfxChain> <out folder> <take>...` (Batch Render). `AXELL_DOJO_SANDBOX=<dir>` keeps
 every file the Dojo touches inside `<dir>`.
 
 ## Build and install

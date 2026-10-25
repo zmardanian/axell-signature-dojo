@@ -155,6 +155,14 @@ inline Plan plan (const Profile& p)
             red = 60.0;
             d.why.push_back ("Gentle (60 %): your room decays in " + fmt ("%.2f", p.rt60) + " s, already dry.");
         }
+        else if (p.rt60 <= 0.40f && p.snrDb < 35.0f)
+        {
+            // measured on untreated home rooms with a noisy floor (D21): 95 % keeps the voice most accurate and takes
+            // 1.6 dB more room and noise than 85 %; on real takes the floor drops ~3 dB more
+            red = 95.0;
+            d.why.push_back ("Clean (95 %): your room decays in " + fmt ("%.2f", p.rt60) + " s and the background is only "
+                             + fmt ("%.0f", p.snrDb) + " dB under you; De-Reverb takes that background out with the room.");
+        }
         else if (p.rt60 <= 0.40f)
             d.why.push_back ("Natural (85 %): your room decays in " + fmt ("%.2f", p.rt60) + " s, a typical small room.");
         else

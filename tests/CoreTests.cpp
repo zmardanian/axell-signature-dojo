@@ -384,6 +384,11 @@ static void testMapping()
     auto pl = plan (p);
     check (pl.chain.size() == 5 && pl.chain[0].plugin == "dereverb" && pl.chain[4].plugin == "velvet", "plan: five plugins in signal order");
     check (find (pl.chain[0], "Reduction") == "85 %", "plan: a 0.33 s room gets De-Reverb Natural (85 %)");
+    {
+        auto noisy = p;
+        noisy.snrDb = 28.0f;
+        check (find (plan (noisy).chain[0], "Reduction") == "95 %", "plan: the same room with the background 28 dB under the voice gets Clean (95 %)");
+    }
     check (find (pl.chain[1], "Key High-Pass") == "85 Hz" && find (pl.chain[1], "Range") == "-44.0 dB", "plan: gate key 0.7 x f0 low, range from the SNR");
     check (find (pl.chain[2], "HP Frequency") == "90.0 Hz", "plan: EQ high-pass 0.75 x f0 low (rounded to 5 Hz)");
     check (find (pl.chain[3], "Sidechain HPF") == "95 Hz", "plan: compressor side-chain 0.8 x f0 low");

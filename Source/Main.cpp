@@ -1,12 +1,16 @@
 // Axell Signature Dojo - the application.
 //   Axell Signature Dojo            the app
 //   Axell Signature Dojo --check    the workstation report on the terminal (exit code 1 if a problem was found)
-//   Axell Signature Dojo --profile <take> [--reference <vocal>] [--name <name>] [--save [--open]]
+//   Axell Signature Dojo --profile <take> [--reference <vocal>] [--name <name>] [--reduction <%>] [--gate-range <dB>]
+//                                   [--save [--open]]
 //                                   a Voice Profile on the terminal: analysis, tuning through the installed plugins,
 //                                   and with --save the presets and REAPER chain (never replacing the user's own)
+//   Axell Signature Dojo --render <chain.RfxChain> <out folder> <take>...
+//                                   Batch Render on the terminal: every take through the chain, 24-bit WAV, never replacing
 //   AXELL_DOJO_SANDBOX=<folder>     every folder the Dojo touches lives under <folder> (testing, demos)
 #include "gui/MainComponent.h"
 #include "platform/ProfileEngine.h"
+#include "platform/Tools.h"
 #include "gui/Theme.h"
 
 #include <cstdio>
@@ -41,6 +45,12 @@ public:
         if (commandLine.contains ("--check"))
         {
             setApplicationReturnValue (printChecks());
+            quit();
+            return;
+        }
+        if (commandLine.contains ("--render"))
+        {
+            setApplicationReturnValue (runRender (getCommandLineParameterArray()));
             quit();
             return;
         }
@@ -121,6 +131,7 @@ private:
         juce::String name = "My Voice";
         bool save = false, open = false;
         juce::File reference;
+        juce::String reduction, gateRange;
         for (int i = 0; i < args.size(); ++i)
         {
             if (args[i] == "--profile" && i + 1 < args.size())
@@ -131,6 +142,10 @@ private:
                 save = true;
             else if (args[i] == "--open")
                 open = true;
+            else if (args[i] == "--reduction" && i + 1 < args.size())
+                reduction = args[++i];
+            else if (args[i] == "--gate-range" && i + 1 < args.size())
+                gateRange = args[++i];
             else if (args[i] == "--reference" && i + 1 < args.size())
                 reference = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
         }
@@ -140,6 +155,24 @@ private:
             return 2;
         }
         ProfileEngine eng (Paths::fromEnvironment());
+        eng.adjustPlan = [reduction, gateRange] (voice::Plan& plan)
+        {
+            auto set = [&plan] (const char* plugin, const char* param, const juce::String& text, const char* why)
+            {
+                for (auto& pp : plan.chain)
+                    if (pp.plugin == plugin)
+                        for (auto& st : pp.settings)
+                            if (st.param == param)
+                            {
+                                st.text = text.toStdString();
+                                pp.why.push_back (why);
+                            }
+            };
+            if (reduction.isNotEmpty())
+                set ("dereverb", "Reduction", juce::String (reduction.getIntValue()) + " %", "Reduction set on the terminal (--reduction).");
+            if (gateRange.isNotEmpty())
+                set ("gate", "Range", juce::String (gateRange.getFloatValue(), 1) + " dB", "Range set on the terminal (--gate-range).");
+        };
         auto o = eng.run (take, true, [] (float f, const juce::String& t) { std::printf ("\r%3d %%  %-60s", juce::roundToInt (f * 100.0f), t.toRawUTF8()); std::fflush (stdout); }, nullptr, reference);
         std::printf ("\n");
         if (! o.ok)
@@ -184,6 +217,32 @@ private:
     std::unique_ptr<AppState> state;
     std::unique_ptr<AudioEngine> audio;
     std::unique_ptr<MainWindow> window;
+    static int runRender (const juce::StringArray& args)
+    {
+        const int at = args.indexOf ("--render");
+        if (at < 0 || args.size() < at + 4)
+        {
+            std::printf ("usage: --render <chain.RfxChain> <out folder> <take>...\n");
+            return 2;
+        }
+        const auto cwd = juce::File::getCurrentWorkingDirectory();
+        juce::Array<juce::File> takes;
+        for (int i = at + 3; i < args.size(); ++i)
+            takes.add (cwd.getChildFile (args[i]));
+        const auto res = dojo::tools::batchRender (Paths::fromEnvironment(), cwd.getChildFile (args[at + 1]), takes, cwd.getChildFile (args[at + 2]), {}, nullptr);
+        int failed = 0;
+        for (const auto& r : res)
+        {
+            failed += r.ok ? 0 : 1;
+            if (r.ok)
+                std::printf ("%s -> %s: %.2f -> %.2f LUFS, %.1f dBTP\n", r.source.getFileName().toRawUTF8(), r.output.getFullPathName().toRawUTF8(),
+                             r.inLufs, r.outLufs, r.outTruePeakDbtp);
+            else
+                std::printf ("%s: %s\n", r.source.getFileName().toRawUTF8(), r.message.toRawUTF8());
+        }
+        return failed > 0 ? 1 : 0;
+    }
+
     juce::uint32 quitRequested = 0;
 };
 } // namespace dojo::gui

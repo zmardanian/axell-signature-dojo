@@ -57,6 +57,10 @@ public:
     ProfileOutcome run (const juce::File& take, bool tune, const Progress&, const std::atomic<bool>* cancel = nullptr,
                         const juce::File& reference = {}, float amount = 1.0f) const;
 
+    // optional: changes the plan before tuning (the terminal's --reduction / --gate-range, for presets made across
+    // several sessions, where one file's measurements do not stand for all of them)
+    std::function<void (voice::Plan&)> adjustPlan;
+
     struct WriteOptions
     {
         juce::String name = "My Voice";

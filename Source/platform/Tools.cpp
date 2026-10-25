@@ -9,6 +9,11 @@ namespace dojo::tools
 LoadedChain loadChain (const Paths& paths, const juce::File& rfx, double rate)
 {
     LoadedChain out;
+    if (! rfx.existsAsFile())
+    {
+        out.problems.add ("No chain file at " + rfx.getFullPathName());
+        return out;
+    }
     juce::StringArray lines;
     rfx.readLines (lines);
     for (int i = 0; i < lines.size(); ++i)

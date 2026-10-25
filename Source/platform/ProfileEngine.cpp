@@ -115,6 +115,8 @@ ProfileOutcome ProfileEngine::run (const juce::File& take, bool tune, const Prog
         return out;
     }
     out.plan = voice::plan (out.profile);
+    if (adjustPlan)
+        adjustPlan (out.plan);
     for (const auto& pp : out.plan.chain)
     {
         StageOutcome s;

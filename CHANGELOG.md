@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1
+- **Voice Profile, small noisy rooms:** when the room is small and the background sits less than 35 dB under the voice,
+  De-Reverb is set to Clean (95 %) - measured on home recordings, where 95-100 % helped and lower settings left the
+  room audible (DESIGN D21).
+- **Batch Render on the terminal:** `--render <chain.RfxChain> <out folder> <take>...` renders every take through a
+  saved chain to 24-bit WAV (never replacing a file) and prints loudness and true peak; a missing chain is reported.
+- `--profile` takes `--reduction <%>` (De-Reverb) and `--gate-range <dB>` (Gate) to override the tuned values.
+- Tests no longer name personal takes (personal lists are read from local files outside the repository).
+
 ## 2.0.0
 - **Open in REAPER**: one click from a Voice Profile (or any chain) to a new REAPER project with a vocal track that
   holds the tuned chain, armed on input 1 with monitoring off. Projects go to ~/Documents/Axell Signature and never
