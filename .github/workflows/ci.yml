@@ -30,5 +30,19 @@ jobs:
         run: cmake --build build --target AxellSignatureDojo DojoCoreTests DojoPlatformTests -j4
       - name: Core suite
         run: ./build/DojoCoreTests
+      - name: Install the released Axell plugins (the platform suite builds chains from them)
+        run: |
+          set -euo pipefail
+          for repo in axell-penta-eq axell-duo-compressor axell-gate axell-dereverb axell-velvet axell-master; do
+            rel=$(curl -fsSL "https://api.github.com/repos/zmardanian/$repo/releases/latest")
+            tar_url=$(echo "$rel" | jq -r '.assets[] | select(.name | endswith("-linux-x86_64.tar.gz")) | .browser_download_url')
+            sums_url=$(echo "$rel" | jq -r '.assets[] | select(.name == "SHA256SUMS.txt") | .browser_download_url')
+            mkdir -p "dl/$repo" && cd "dl/$repo"
+            curl -fsSL -O "$tar_url" && curl -fsSL -O "$sums_url"
+            sha256sum -c SHA256SUMS.txt --ignore-missing
+            tar xzf ./*.tar.gz && (cd ./*-linux-x86_64 && ./install.sh)
+            cd ../..
+          done
+          ls ~/.vst3
       - name: Platform suite (sandboxed)
         run: xvfb-run -a ./build/DojoPlatformTests_artefacts/Release/DojoPlatformTests
