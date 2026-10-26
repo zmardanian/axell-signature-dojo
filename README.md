@@ -1,6 +1,22 @@
 # Axell Signature Dojo
 
-The home of the Axell Signature suite - Axell's Dojo (Axell De-Reverb, Gate, Penta EQ, Duo Compressor, Velvet, Master; 3.0: connected through the shared axell-core) on Linux.
+**Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the six plugins, tunes a
+complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation.
+
+![Axell Signature Dojo](docs/screenshots/plugins.png)
+
+## The suite (all at 3.0, connected through one shared core)
+
+| Plugin | What it is | New in 3.0 (from another plugin of the suite) |
+|---|---|---|
+| [Axell De-Reverb](https://github.com/zmardanian/axell-dereverb) 3.0.0 | removes the room from a close vocal (a trained network) | **LIVE**: zero latency for recording (Velvet's minimum-phase method) |
+| [Axell Gate](https://github.com/zmardanian/axell-gate) 3.0.0 | a gate that hears the voice and the room, removes headphone bleed, shapes drums | a second voice network trained on 111 voices (Velvet's data) |
+| [Axell Penta EQ](https://github.com/zmardanian/axell-penta-eq) 3.0.0 | analog-matched parametric, dynamic and spectral EQ with a character rack | **Ess** detector source (Velvet's sibilance network) |
+| [Axell Duo Compressor](https://github.com/zmardanian/axell-duo-compressor) 3.0.0 | FET + opto compressor and true-peak limiter | **VOICE HOLD** (Gate's voice detector): pauses no longer lifted |
+| [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.1 | neural de-esser + tape / console / tube warmth | its detectors and zero-latency method now shared with the others |
+| [Axell Master](https://github.com/zmardanian/axell-master) 3.0.0 | clipper, true-peak limiter, loudness, streaming-codec check | **VOICE HOLD** for a vocal bus (Duo's method in the shared limiter) |
+
+## What the Dojo does
 
 - **Plugins**: install, update, reinstall, restore earlier versions or remove - from GitHub or a folder (USB stick).
   Every archive is checked against its published SHA-256 and unpacked by a strict reader; only the plugin bundle is
@@ -25,7 +41,26 @@ Terminal: `--check` (workstation report), `--profile <take> [--reference <vocal>
 `--render <chain.RfxChain> <out folder> <take>...` (Batch Render). `AXELL_DOJO_SANDBOX=<dir>` keeps
 every file the Dojo touches inside `<dir>`.
 
-## Build and install
+## Install
+
+Download `AxellSignatureDojo-3.0.0-linux-x86_64.tar.gz` from the
+[latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) (optional: `sha256sum -c
+SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu. Linux x86_64,
+glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
+
+## Engineering progress
+
+| Version | Engineering | Measured |
+|---|---|---|
+| **1.0.0** | Plugins page (checksum-verified install, update, backup, restore), Voice Profile, nine REAPER chain templates, Workstation checks | - |
+| **2.0.0** | Open in REAPER, step-through listening, Reference Match, a confidence for every measurement, Batch Render, Streaming Preview, Backup & Move; an outside code review's findings fixed (atomic swap, strict archive reader) | sandboxed platform tests, ASan/UBSan clean, REAPER loads every chain 12/12 |
+| **2.0.1** | Small noisy rooms get De-Reverb Clean (95 %); Batch Render on the terminal | 95-100 % measured best on home recordings (DESIGN D21) |
+| **2.1.0** | The Voice Profile listens with Velvet 3.0's detector (111 voices); Velvet's AMOUNT tuned on your take to where natural speech has its esses; a tracking chain for recording | the artist's take: esses' loud end -1.9 -> -10.4 dB at the tuned 50 %; tracking chain 3.4 ms (Gate BEST would be 70 ms) |
+| **3.0.0** | The suite at 3.0, connected: the tracking chain includes De-Reverb LIVE (0 ms); profiles tuned on the 3.0 plugins (Duo's VOICE HOLD, Gate 3.0, Master's VOICE HOLD); Axell's Dojo brush title | tracking chain 5 plugins, 3.4 ms; core 64/64, platform 149/149, REAPER 14/14 |
+
+The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
+
+## Build from source
 ```
 scripts/build.sh
 scripts/install.sh
@@ -34,6 +69,7 @@ Tests: `build/DojoCoreTests`, `build/DojoPlatformTests_artefacts/Release/DojoPla
 `tools/reaper-verify.sh` (loads every chain in a portable REAPER copy).
 
 ## Licence
-AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter font (OFL 1.1), axell-core.
+AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter and Yuji Syuku fonts (SIL OFL 1.1),
+axell-core (vendored in `external/axell-core`).
 The low-mid reference curve is derived from the VCTK corpus (CC BY 4.0, University of Edinburgh) and CMU ARCTIC.
 Contact: axellpetre@protonmail.com
