@@ -1,5 +1,7 @@
 # Axell Signature Dojo
 
+[![CI](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg)](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml)
+
 **Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the six plugins, tunes a
 complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation.
 
