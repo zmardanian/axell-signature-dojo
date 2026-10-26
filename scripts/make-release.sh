@@ -12,6 +12,7 @@ BIN="build/AxellSignatureDojo_artefacts/Release/Axell Signature Dojo"
 mkdir -p "$R"; rm -rf "$R/$N" "$R/$N.tar.gz"; mkdir "$R/$N"
 cp "$BIN" "$R/$N/axell-signature-dojo"
 cp Resources/images/icon.png "$R/$N/axell-signature-dojo.png"
+mkdir -p "$R/$N/icons"; cp Resources/images/icons/*.png "$R/$N/icons/"
 cp LICENSE README.md CHANGELOG.md "$R/$N/"
 cat > "$R/$N/install.sh" <<'INSTALL'
 #!/usr/bin/env bash
@@ -22,6 +23,12 @@ DEST="$HOME/.local/share/AxellSignature/Dojo/app"
 mkdir -p "$DEST" "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/512x512/apps"
 install -m 755 axell-signature-dojo "$DEST/axell-signature-dojo"
 install -m 644 axell-signature-dojo.png "$HOME/.local/share/icons/hicolor/512x512/apps/axell-signature-dojo.png"
+# every size, so no older small icon of the Dojo can win over the new one
+for f in icons/axell-signature-dojo-*.png; do
+  sz="${f##*-}"; sz="${sz%.png}"; mkdir -p "$HOME/.local/share/icons/hicolor/${sz}x${sz}/apps"
+  install -m 644 "$f" "$HOME/.local/share/icons/hicolor/${sz}x${sz}/apps/axell-signature-dojo.png"
+done
+touch "$HOME/.local/share/icons/hicolor"
 printf '[Desktop Entry]\nType=Application\nName=Axell Signature Dojo\nComment=Install, tune and set up the Axell Signature plugin suite\nExec=%s\nIcon=axell-signature-dojo\nCategories=AudioVideo;Audio;\nTerminal=false\n' "$DEST/axell-signature-dojo" > "$HOME/.local/share/applications/axell-signature-dojo.desktop"
 echo "Installed. Open \"Axell Signature Dojo\" from your app menu."
 INSTALL

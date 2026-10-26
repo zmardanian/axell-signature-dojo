@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1
+- **New app icon: the Dojo's seal.** A vermilion hanko seal with 道 ("the way") carved in the brush face, stamped
+  askew on a torn piece of washi, inside a dry-brush gold ensō on black lacquer. The installer now puts it in every
+  icon size (16-512 px), so an older small icon can no longer show on the desktop or in the menu (D28).
+
 ## 3.0.0
 - **The suite at 3.0, connected:** Axell Duo Compressor 3.0 (VOICE HOLD), Gate 3.0 (a second voice network trained on
   111 voices), De-Reverb 3.0 (LIVE: zero latency), Penta EQ 3.0 (ESS detector source), Master 3.0 (VOICE HOLD for a

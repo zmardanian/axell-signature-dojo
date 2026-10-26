@@ -43,7 +43,7 @@ every file the Dojo touches inside `<dir>`.
 
 ## Install
 
-Download `AxellSignatureDojo-3.0.0-linux-x86_64.tar.gz` from the
+Download `AxellSignatureDojo-3.0.1-linux-x86_64.tar.gz` from the
 [latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) (optional: `sha256sum -c
 SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu. Linux x86_64,
 glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
@@ -57,6 +57,7 @@ glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a fo
 | **2.0.1** | Small noisy rooms get De-Reverb Clean (95 %); Batch Render on the terminal | 95-100 % measured best on home recordings (DESIGN D21) |
 | **2.1.0** | The Voice Profile listens with Velvet 3.0's detector (111 voices); Velvet's AMOUNT tuned on your take to where natural speech has its esses; a tracking chain for recording | the artist's take: esses' loud end -1.9 -> -10.4 dB at the tuned 50 %; tracking chain 3.4 ms (Gate BEST would be 70 ms) |
 | **3.0.0** | The suite at 3.0, connected: the tracking chain includes De-Reverb LIVE (0 ms); profiles tuned on the 3.0 plugins (Duo's VOICE HOLD, Gate 3.0, Master's VOICE HOLD); Axell's Dojo brush title | tracking chain 5 plugins, 3.4 ms; core 64/64, platform 149/149, REAPER 14/14 |
+| **3.0.1** | New app icon: the Dojo's 道 hanko seal on washi inside a gold ensō, installed in every size | legible down to 32 px; no cached older icon left behind |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 

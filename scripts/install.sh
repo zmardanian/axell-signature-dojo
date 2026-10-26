@@ -8,6 +8,12 @@ DEST="$HOME/.local/share/AxellSignature/Dojo/app"
 mkdir -p "$DEST" "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/512x512/apps"
 cp "$BIN" "$DEST/axell-signature-dojo"
 cp Resources/images/icon.png "$HOME/.local/share/icons/hicolor/512x512/apps/axell-signature-dojo.png"
+# every size, so no older small icon of the Dojo can win over the new one
+for f in Resources/images/icons/axell-signature-dojo-*.png; do
+  sz="${f##*-}"; sz="${sz%.png}"; mkdir -p "$HOME/.local/share/icons/hicolor/${sz}x${sz}/apps"
+  cp "$f" "$HOME/.local/share/icons/hicolor/${sz}x${sz}/apps/axell-signature-dojo.png"
+done
+touch "$HOME/.local/share/icons/hicolor"
 cat > "$HOME/.local/share/applications/axell-signature-dojo.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
