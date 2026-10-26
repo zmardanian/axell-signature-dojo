@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.2
+- **The seal icon, redrawn:** 3.0.1's dark lacquer tile was lit only in its centre, so on a dark desktop the icon
+  read as a dark blob with black corners. Now the classic calligraphy page: warm washi filling the whole tile, evenly
+  lit to the edges, a black sumi-ink ensō brushed from 72 bristles (wet landing, dry split lift), and the vermilion
+  道 seal stamped inside it; a fine gold frame. Clear on light and dark desktops, legible down to 32 px (D28).
+
 ## 3.0.1
 - **New app icon: the Dojo's seal.** A vermilion hanko seal with 道 ("the way") carved in the brush face, stamped
   askew on a torn piece of washi, inside a dry-brush gold ensō on black lacquer. The installer now puts it in every
