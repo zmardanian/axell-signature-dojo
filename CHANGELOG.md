@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0
+- **The suite at 3.0, connected:** Axell Duo Compressor 3.0 (VOICE HOLD), Gate 3.0 (a second voice network trained on
+  111 voices), De-Reverb 3.0 (LIVE: zero latency), Penta EQ 3.0 (ESS detector source), Master 3.0 (VOICE HOLD for a
+  vocal bus) and Velvet 3.0.1 - shared through axell-core (the voice decision, the minimum-phase method, the look).
+- **Tracking chain with De-Reverb:** every Voice Profile's tracking chain (and the "Tracking (Live)" template) now
+  includes De-Reverb in LIVE mode - no latency, so you record hearing yourself without the room (D25).
+- **Profiles tuned on the 3.0 plugins:** Duo's VOICE HOLD and the other 3.0 behaviours are what the Dojo measures and
+  saves (D26).
+- **Axell's Dojo title:** "Axell's Dojo" in the brush face with the Dojo's seal 道 (D27).
+- Verified: core tests 64/64, platform tests 149/149 (sandboxed; the tracking chain with De-Reverb LIVE: 3.4 ms), REAPER
+  loads all 14 chains with every value (tools/reaper-verify.sh).
+
 ## 2.1.0
 - **Voice Profile listens with Axell Velvet 3.0's detector** (trained on 111 voices instead of 3): better at the
   rarer sibilants and at accents - Romanian ce / ci, ge / gi, j, ș - when it measures where your esses sit (D22).

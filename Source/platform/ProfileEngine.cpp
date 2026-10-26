@@ -544,9 +544,10 @@ juce::StringArray ProfileEngine::write (ProfileOutcome& o, const WriteOptions& w
     }
     if (w.chain && w.tracking && ! o.built.empty())
     {
-        // the tracking chain (D24): the same tuned plugins set for monitoring - Velvet's LIVE de-esser and Gate's LIVE
-        // speed (no look-ahead), De-Reverb left out (it needs a look-ahead of its own); each plugin's latency read
-        // after it was prepared in that setting. The mixing settings are restored afterwards.
+        // the tracking chain (D24, 3.0: D26): the same tuned plugins set for monitoring - Velvet's LIVE de-esser,
+        // Gate's LIVE speed and De-Reverb 3.0's LIVE mode (a causal network, no latency; an older De-Reverb, which
+        // needs its look-ahead, is left out); each plugin's latency read after it was prepared in that setting. The
+        // mixing settings are restored afterwards.
         ChainWriter cw (paths);
         std::vector<const BuiltStage*> sel;
         std::vector<std::pair<BuiltStage*, std::pair<juce::String, juce::String>>> restore;   // stage, (param, text)
@@ -561,10 +562,17 @@ juce::StringArray ProfileEngine::write (ProfileOutcome& o, const WriteOptions& w
             else
                 missing.add (b.product->name + " has no " + what + " (an older version is installed)");
         };
+        bool dereverbLive = false;
         for (auto& b : o.built)
         {
             if (b.product->key == "dereverb")
-                continue;
+            {
+                const auto was = b.plugin->text ("Mode");
+                if (! b.plugin->set ("Mode", "Live"))
+                    continue;                               // De-Reverb before 3.0: no LIVE mode, stays in the mix chain
+                restore.push_back ({ &b, { "Mode", was } });
+                dereverbLive = true;
+            }
             if (b.product->key == "velvet")
                 toLive (b, "De-Ess Mode", "Live", "zero-latency de-esser");
             if (b.product->key == "gate")
@@ -582,7 +590,9 @@ juce::StringArray ProfileEngine::write (ProfileOutcome& o, const WriteOptions& w
         lines.add (res.message);
         if (res.ok)
             lines.add ("Tracking chain: " + juce::String (1000.0 * latency / rate, 1) + " ms of plugin latency (" + parts.joinIntoString (", ")
-                       + "), plus your audio buffer (Workstation page). De-Reverb stays in the vocal chain for mixing."
+                       + "), plus your audio buffer (Workstation page)."
+                       + (dereverbLive ? juce::String (" De-Reverb runs in LIVE mode (no latency); the vocal chain keeps STUDIO for mixing.")
+                                       : juce::String (" De-Reverb stays in the vocal chain for mixing (version 3.0 adds a LIVE mode for recording)."))
                        + (missing.isEmpty() ? juce::String() : " " + missing.joinIntoString ("; ") + "."));
         for (auto& [b, pv] : restore)
             b->plugin->set (pv.first, pv.second);

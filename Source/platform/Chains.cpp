@@ -18,8 +18,9 @@ const std::vector<ChainTemplate>& ChainTemplate::all()
           { S { "dereverb", "Natural", {} }, S { "gate", "Rap Lead - Clean Gaps", {} }, S { "penta", "Boom Bap Lead - Warm Grit", {} },
             S { "duo", "Vocal: Upfront Hip-Hop", {} }, S { "velvet", "Boom Bap Grit", {} } } },
         { "tracking", "Tracking (Live)", "Vocals", "Record while you hear yourself through it: about 3 ms of plugin latency. "
-          "Gate at LIVE speed, forward EQ, FET + opto, Velvet's zero-latency de-esser; no De-Reverb (it needs look-ahead).",
-          { S { "gate", "Rap Lead - Clean Gaps", { { "Speed", "Live" } } }, S { "penta", "Rap Lead - Clean & Forward", {} },
+          "De-Reverb LIVE (no latency), Gate at LIVE speed, forward EQ, FET + opto with VOICE HOLD, Velvet's zero-latency de-esser.",
+          { S { "dereverb", "Natural", { { "Mode", "Live" } } }, S { "gate", "Rap Lead - Clean Gaps", { { "Speed", "Live" } } },
+            S { "penta", "Rap Lead - Clean & Forward", {} },
             S { "duo", "Rap Lead", {} }, S { "velvet", "Tracking - Warm Monitor", {} } } },
         { "doubles", "Doubles", "Vocals", "Tucks doubles behind the lead: tighter gate, thinner low end, more control.",
           { S { "gate", "Ad-Libs & Doubles", {} }, S { "penta", "Doubles - Tuck Behind", {} }, S { "duo", "Boom Bap Double", {} },

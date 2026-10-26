@@ -1,4 +1,6 @@
 #include "MainComponent.h"
+
+#include <axell/gui/BrandTitle.h>
 #include "Pages.h"
 #include "DojoAssets.h"
 
@@ -60,13 +62,22 @@ void Sidebar::paint (juce::Graphics& g)
     g.drawVerticalLine (getWidth() - 1, 0.0f, (float) getHeight());
 
     // brand
-    g.drawImage (logo, juce::Rectangle<float> (22.0f, 30.0f, 44.0f, 44.0f), juce::RectanglePlacement::centred);
-    g.setColour (theme::dim);
-    g.setFont (ui::caps (10.5f, 1));
-    g.drawText ("AXELL SIGNATURE", 78, 32, getWidth() - 86, 16, juce::Justification::centredLeft);
-    g.setColour (theme::text);
-    g.setFont (ui::font (22.0f, 2));
-    g.drawText ("Dojo", 78, 48, getWidth() - 86, 28, juce::Justification::centredLeft);
+    // Axell's Dojo: the family emblem, drawn as vectors (the brand's own red for the wave and the dot)
+    axell::brand::drawEmblem (g, juce::Rectangle<float> (16.0f, 24.0f, 56.0f, 56.0f), axell::brand::kSun);
+    // the brand's title: "Axell's" in gold over "Dojo" brushed, with the Dojo's seal (道, "the way")
+    {
+        auto small = axell::brand::brushPath (juce::String (juce::CharPointer_UTF8 ("Axell\xe2\x80\x99s")), 9.0f, 0.06f);
+        small.applyTransform (juce::AffineTransform::translation (80.0f, 42.0f));
+        g.setGradientFill (juce::ColourGradient (axell::brand::kGoldLight, 0.0f, 33.0f, axell::brand::kGoldDeep, 0.0f, 44.0f, false));
+        axell::brand::fillInk (g, small, 0.3f);
+        auto big = axell::brand::brushPath ("Dojo", 19.0f, -0.01f);
+        const float wN = big.getBounds().getRight();
+        big.applyTransform (juce::AffineTransform::translation (79.0f, 70.0f));
+        juce::DropShadow (juce::Colours::black.withAlpha (0.6f), 4, { 0, 1 }).drawForPath (g, big);
+        g.setGradientFill (juce::ColourGradient (axell::brand::kIvory, 0.0f, 50.0f, axell::brand::kIvoryShade, 0.0f, 76.0f, false));
+        axell::brand::fillInk (g, big, 0.4f);
+        axell::brand::drawSeal (g, { 79.0f + wN + 9.0f, 50.0f, 22.0f, 22.0f }, juce::String (juce::CharPointer_UTF8 ("\xe9\x81\x93")));
+    }
 
     for (int i = 0; i < numSections; ++i)
     {

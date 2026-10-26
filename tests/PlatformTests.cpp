@@ -74,14 +74,19 @@ static void testSuite()
         f.copyFileTo (usb.getChildFile (f.getFileName()));
     src.getChildFile ("SHA256SUMS.txt").copyFileTo (usb.getChildFile ("SHA256SUMS.txt"));
     auto rel = suite.scanFolder (gate, usb);
-    // the folder's SHA256SUMS lists the newest archive only; an archive without a checksum line still shows
-    check (rel.size() >= 1 && rel[0].version == Version::parse ("2.0.0"), "releases in a folder: newest first ("
+    // the folder's SHA256SUMS lists the newest archive only; an archive without a checksum line still shows. The newest
+    // is whatever Gate release the build machine holds (2.0.0 when this was written, 3.0.0 since)
+    bool sorted = rel.size() >= 1;
+    for (int i = 1; i < rel.size(); ++i)
+        sorted = sorted && rel[i].version < rel[i - 1].version;
+    const Version newest = rel.isEmpty() ? Version {} : rel[0].version;
+    check (sorted && newest.major >= 2, "releases in a folder: newest first ("
                                                                              + juce::String (rel.size()) + " found)");
     check (! suite.installed (gate).present, "nothing installed in the sandbox yet");
     std::vector<juce::String> steps;
     auto r = suite.install (gate, rel[0], [&] (float, const juce::String& s) { steps.push_back (s); });
     const auto inst = suite.installed (gate);
-    check (r.ok && inst.present && inst.version == Version::parse ("2.0.0") && inst.vendor == "Axell Yobag",
+    check (r.ok && inst.present && inst.version == newest && inst.vendor == "Axell Yobag",
            "install from a folder: " + r.message);
     check (steps.size() >= 4, "install reports its steps (" + juce::String ((int) steps.size()) + ")");
     check (paths.staging().findChildFiles (juce::File::findFilesAndDirectories, false).isEmpty(), "install leaves no staging files");
@@ -137,7 +142,7 @@ static void testSuite()
         Suite::stopAfterSwapForTest = false;
         const auto in = suite.installed (gate);
         bool ran = false;
-        check (! r3.ok && in.present && in.version == Version::parse ("2.0.0") && Suite::missingLibraries (in.bundle, ran).isEmpty() && ran
+        check (! r3.ok && in.present && in.version == newest && Suite::missingLibraries (in.bundle, ran).isEmpty() && ran
                    && ! paths.vst3.getChildFile (gate.bundle).getChildFile ("Contents/x86_64-linux").findChildFiles (juce::File::findFiles, false, "*.so").isEmpty(),
                "killed right after the swap: the plugin folder still holds a complete, working plugin");
         paths.staging().deleteRecursively();   // what a stopped install leaves behind; the next install starts clean
@@ -150,7 +155,7 @@ static void testSuite()
            "remove keeps a copy: " + r.message);
     auto bk = suite.backups (gate);
     r = suite.restore (gate, bk[0]);
-    check (r.ok && suite.installed (gate).present && suite.installed (gate).version == Version::parse ("2.0.0"), "restore: " + r.message);
+    check (r.ok && suite.installed (gate).present && suite.installed (gate).version == newest, "restore: " + r.message);
     {
         // restoring over an installed version swaps them atomically and keeps the replaced one as a backup
         const auto n = suite.backups (gate).size();
@@ -416,16 +421,21 @@ static void testProfile()
     check (chain.existsAsFile() && parseChain (chain.loadFileAsString(), progs) == 5 && progs.size() == 5 && progs[0] == "Dojo Test Voice",
            "profile: REAPER chain with five plugins, each named after the profile");
     check (sandbox.profiles().getChildFile ("Dojo Test Voice.json").existsAsFile(), "profile: profile file written");
-    // 2.1 (D24): the tracking chain - four plugins (no De-Reverb), named "<name> Tracking", Velvet in LIVE, Gate at
-    // LIVE speed, and the latency reported; the mixing chain's plugins are back in their mixing settings afterwards
+    // 2.1 (D24) / 3.0 (D25): the tracking chain - all five plugins with De-Reverb 3.0 in LIVE (four with an older
+    // De-Reverb), named "<name> Tracking", Velvet in LIVE, Gate at LIVE speed, the latency reported; the mixing chain's
+    // plugins are back in their mixing settings afterwards
     {
         const auto tr = sandbox.reaperChains().getChildFile ("Dojo Test Voice - Tracking Chain.RfxChain");
         juce::StringArray tp;
-        check (tr.existsAsFile() && parseChain (tr.loadFileAsString(), tp) == 4 && tp.size() == 4 && tp[0] == "Dojo Test Voice Tracking",
-               "tracking chain: four plugins (no De-Reverb), each named \"<name> Tracking\"");
+        const bool drLive = o.built[0].plugin->text ("Mode").isNotEmpty();
+        const int expectN = drLive ? 5 : 4;
+        check (tr.existsAsFile() && parseChain (tr.loadFileAsString(), tp) == expectN && tp.size() == expectN && tp[0] == "Dojo Test Voice Tracking",
+               juce::String (expectN) + " plugins in the tracking chain (De-Reverb " + (drLive ? "in LIVE" : "left out: no LIVE mode installed")
+                   + "), each named \"<name> Tracking\"");
         check (lines.joinIntoString ("\n").contains ("ms of plugin latency"), "tracking chain: its latency is reported");
-        check (o.built[4].plugin->text ("De-Ess Mode") == "Studio" && o.built[1].plugin->text ("Speed") != "Live",
-               "after writing: Velvet back in STUDIO, Gate back at its mixing speed");
+        check (o.built[4].plugin->text ("De-Ess Mode") == "Studio" && o.built[1].plugin->text ("Speed") != "Live"
+                   && (! drLive || o.built[0].plugin->text ("Mode") == "Studio"),
+               "after writing: Velvet and De-Reverb back in STUDIO, Gate back at its mixing speed");
     }
     check (! real.reaperChains().getChildFile ("Dojo Test Voice - Vocal Chain.RfxChain").exists()
                && ! real.presetFolder ("AxellGate").getChildFile ("Dojo Test Voice.axgpreset").exists(),
@@ -679,8 +689,8 @@ int main (int argc, char** argv)
             for (size_t i = 0; i < o.built.size(); ++i)
             {
                 const auto& b = o.built[i];
-                if (b.product->key == "dereverb")
-                    continue;
+                if (b.product->key == "dereverb" && b.plugin->text ("Mode").isEmpty())
+                    continue;                                   // a De-Reverb before 3.0 stays out
                 e << "FX\t" << k << "\t" << b.product->name << "\tDojo Verify Tracking\n";
                 for (auto& [pk, pv] : o.stages[i].values)
                     e << "P\t" << k << "\t" << pk << "\t" << pv << "\n";
@@ -688,6 +698,8 @@ int main (int argc, char** argv)
                     e << "P\t" << k << "\tSpeed\tLive\n";
                 if (b.product->key == "velvet")
                     e << "P\t" << k << "\tDe-Ess Mode\tLive\n";
+                if (b.product->key == "dereverb")
+                    e << "P\t" << k << "\tMode\tLive\n";
                 ++k;
             }
             dir.getChildFile ("profile-tracking.expect").replaceWithText (e, false, false, "\n");
