@@ -33,7 +33,7 @@ jobs:
       - name: Install the released Axell plugins (the platform suite builds chains from them)
         run: |
           set -euo pipefail
-          for repo in axell-penta-eq axell-duo-compressor axell-gate axell-dereverb axell-velvet axell-master; do
+          for repo in axell-penta-eq axell-duo-compressor axell-gate axell-dereverb axell-velvet axell-master axell-space; do
             rel=$(curl -fsSL "https://api.github.com/repos/zmardanian/$repo/releases/latest")
             tar_url=$(echo "$rel" | jq -r '.assets[] | select(.name | endswith("-linux-x86_64.tar.gz")) | .browser_download_url')
             sums_url=$(echo "$rel" | jq -r '.assets[] | select(.name == "SHA256SUMS.txt") | .browser_download_url')
