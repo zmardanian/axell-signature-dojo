@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg)](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml)
 
-**Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the seven plugins, tunes a
+**Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the eight plugins, tunes a
 complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation.
 
 ![Axell Signature Dojo](docs/screenshots/plugins.png)
@@ -18,6 +18,7 @@ complete vocal chain to *your* voice from one dry take, and sets up REAPER and y
 | [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.3 | neural de-esser + tape / console / tube warmth | the zero-latency LIVE de-esser |
 | [Axell Master](https://github.com/zmardanian/axell-master) 4.0.2 | clipper, true-peak limiter, loudness, streaming-codec check | **ESS HOLD** for a vocal bus |
 | [Axell Space](https://github.com/zmardanian/axell-space) 1.0.1 | vocal reverb (booth / room / plate / hall) + tempo-synced delay | **ESS DUCK**: the esses kept out of the tails (the suite's sibilance network) |
+| [Axell Forbidden Seal](https://github.com/zmardanian/axell-forbidden-seal) 3.0.0 | saturation: eight circuits from physics, three bands | **ESS GUARD**: the esses kept out of the grit; LEARN sets the input level |
 
 ## What the Dojo does
 
@@ -51,7 +52,7 @@ every file the Dojo touches inside `<dir>`.
 
 ## Install
 
-Download `AxellSignatureDojo-3.1.0-linux-x86_64.tar.gz` from the
+Download `AxellSignatureDojo-3.1.1-linux-x86_64.tar.gz` from the
 [latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) (optional: `sha256sum -c
 SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu. Linux x86_64,
 glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).

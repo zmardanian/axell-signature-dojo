@@ -11,7 +11,7 @@ trap 'rm -rf "$WORK"' EXIT
 cp -a "$SRC" "$WORK/reaper"
 R="$WORK/reaper"
 mkdir -p "$WORK/vst3" "$R/Scripts"
-for b in "Axell De-Reverb" "Axell Gate" "Axell Penta EQ" "Axell Duo Compressor" "Axell Velvet" "Axell Master" "Axell Space"; do
+for b in "Axell De-Reverb" "Axell Gate" "Axell Penta EQ" "Axell Duo Compressor" "Axell Velvet" "Axell Master" "Axell Space" "Axell Forbidden Seal"; do
   ln -s "$HOME/.vst3/$b.vst3" "$WORK/vst3/$b.vst3"
 done
 # a reaper.ini next to the program makes REAPER portable: it keeps all its settings in this folder

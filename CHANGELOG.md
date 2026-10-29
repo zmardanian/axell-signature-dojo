@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.1
+- **Axell Forbidden Seal** joins the suite (saturation: eight circuits, three bands, ESS GUARD): installed, updated and
+  listed like the others.
+- Verified: core 64/64, platform 179/179, REAPER 17/17.
+
 ## 3.1.0
 - **Signature sounds: your approved chains, one click from a take.** A vocal chain and a master chain you approved by
   ear, with the level of the dry take they were tuned on. Chains page > Your signature sound > "Take at -14 LUFS..."

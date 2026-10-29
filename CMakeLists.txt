@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(AxellSignatureDojo VERSION 3.1.0)
+project(AxellSignatureDojo VERSION 3.1.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,6 +46,7 @@ juce_add_binary_data(DojoAssets HEADER_NAME DojoAssets.h NAMESPACE DojoAssets SO
   ${CMAKE_CURRENT_LIST_DIR}/Resources/images/gate.png
   ${CMAKE_CURRENT_LIST_DIR}/Resources/images/dereverb.png
   ${CMAKE_CURRENT_LIST_DIR}/Resources/images/space.png
+  ${CMAKE_CURRENT_LIST_DIR}/Resources/images/seal.png
   ${CMAKE_CURRENT_LIST_DIR}/Resources/images/icon.png)
 set_target_properties(DojoAssets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
