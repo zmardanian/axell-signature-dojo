@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.1.0
+- **Signature sounds: your approved chains, one click from a take.** A vocal chain and a master chain you approved by
+  ear, with the level of the dry take they were tuned on. Chains page > Your signature sound > "Take at -14 LUFS..."
+  (or -11): the Dojo measures the new take, matches its level to the tuning take (so the gate, the compressors and the
+  de-esser work as they did on it), sets Axell Master's INPUT for the target and opens a REAPER session - the master
+  chain on the master, your take and the vocal chain on a track. Measured on three other takes of the artist (16.9 to
+  20.9 LUFS dry): all land at -14.0 +-0.05 LUFS, true peak -1.0 dBTP. Terminal: `--signature <name> --take <file>
+  --target <LUFS> [--open]` (D29).
+- **Update saved chains** (Chains page; terminal `--update-chains [files]`): chains saved with older plugin versions
+  gain what the plugins have learned since - De-Reverb's TRUE TONE, Gate's PITCH HOLD, and Duo Compressor's /
+  Master's VOICE HOLD + ESS HOLD in vocal chains - set as the plugins' own presets set them; every value the saved
+  chain holds stays as it is. Template chains are rebuilt from the current presets; the old files are kept in the
+  Dojo's chain-backups folder; a chain with nothing to gain is not touched. On the artist's Amber profile chain over 28
+  of their takes: esses 0.5 dB smoother, pauses 0.5 dB quieter, the fundamental 0.9 dB under the dry take instead of
+  2.8 dB thin, UTMOS 2.267 -> 2.279 (better on 19 takes, 3 equal, 6 lower by at most 0.085) (D30).
+- **Axell Space** joins the suite: installed, updated and listed like the others, and two new send chains (Vocal FX):
+  "Vocal Plate (send)" and "Delay Throw (send)".
+- Verified: core 64/64, platform 175/175, ASan/UBSan clean, REAPER 17/17 (every template, the profile and tracking chains, both Space send chains and a signature session: master FX, Axell Master's INPUT and the take's gain match as set).
+
 ## 3.0.2
 - **The seal icon, redrawn:** 3.0.1's dark lacquer tile was lit only in its centre, so on a dark desktop the icon
   read as a dark blob with black corners. Now the classic calligraphy page: warm washi filling the whole tile, evenly

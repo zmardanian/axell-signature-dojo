@@ -13,6 +13,14 @@
 
 namespace dojo
 {
+// What a chain saved with an older plugin version gains on an update: the features that version did not have yet, set
+// as the plugins' own presets set them - De-Reverb 4.0 TRUE TONE on, Gate 4.0 PITCH HOLD on, and in Duo Compressor /
+// Master VOICE HOLD (3.0) and ESS HOLD (4.0) on in a vocal chain, ESS HOLD = VOICE HOLD elsewhere (beats, buses,
+// masters). A setting the saved state already holds was a decision and is never changed. `saved`: the stage's saved
+// state (its parameter tree); `vocalChain`: the chain also holds De-Reverb, Gate or Velvet.
+std::vector<std::pair<juce::String, juce::String>> currentFeatureSettings (const juce::String& productKey, const HostedPlugin&,
+                                                                            const juce::ValueTree& saved, bool vocalChain);
+
 struct ChainStage
 {
     juce::String product;                 // catalog key
@@ -58,7 +66,8 @@ public:
         juce::File file;
         juce::String message;
     };
-    Written write (const juce::String& fileName, const juce::String& text) const;
+    // replaceUnlisted: also replace a file the Dojo did not write (only when the user named that file)
+    Written write (const juce::String& fileName, const juce::String& text, bool replaceUnlisted = false) const;
     bool wroteBefore (const juce::File&) const;   // the Dojo wrote this file and it is unchanged since
 
     // a REAPER project: one track named `trackName`, record-armed on input 1 (monitoring off), holding the chain

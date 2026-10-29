@@ -326,6 +326,60 @@ void AppState::installChain (const ChainTemplate& t)
     }, [this, id = t.id] { chainBusy[id] = false; });
 }
 
+void AppState::updateSavedChains()
+{
+    if (chainsUpdating)
+        return;
+    chainsUpdating = true;
+    reaperMessage = "Updating your saved chains...";
+    reaperMessageOk = true;
+    run ("Updating saved chains", [this] (const std::atomic<bool>&)
+    {
+        int updated = 0, current = 0, failed = 0;
+        juce::String firstProblem;
+        for (const auto& u : tools::updateSavedChains (paths))
+        {
+            updated += u.changed ? 1 : 0;
+            current += u.ok && ! u.changed ? 1 : 0;
+            if (! u.ok)
+            {
+                ++failed;
+                if (firstProblem.isEmpty())
+                    firstProblem = u.file.getFileNameWithoutExtension() + ": " + u.message;
+            }
+        }
+        juce::String msg;
+        msg << updated << " chain" << (updated == 1 ? "" : "s") << " updated to the installed plugins, " << current << " already current";
+        if (updated > 0)
+            msg << " (the old files are in the Dojo's chain-backups folder)";
+        if (failed > 0)
+            msg << ". Not updated: " << firstProblem;
+        post ([this, msg, failed]
+        {
+            reaperMessage = msg;
+            reaperMessageOk = failed == 0;
+        });
+    }, [this] { chainsUpdating = false; });
+}
+
+void AppState::openSignature (const Signature& sig, const juce::File& take, float lufs)
+{
+    if (signatureBusy)
+        return;
+    signatureBusy = true;
+    reaperMessage = "Measuring " + take.getFileName() + " for " + sig.name + "...";
+    reaperMessageOk = true;
+    run ("Preparing " + sig.name, [this, sig, take, lufs] (const std::atomic<bool>&)
+    {
+        const auto r = makeSignatureSession (paths, sig, take, lufs, true);
+        post ([this, r]
+        {
+            reaperMessage = r.message;
+            reaperMessageOk = r.ok;
+        });
+    }, [this] { signatureBusy = false; });
+}
+
 juce::Array<juce::File> AppState::profileChains() const
 {
     auto list = paths.reaperChains().findChildFiles (juce::File::findFiles, false, "* - Vocal Chain.RfxChain");

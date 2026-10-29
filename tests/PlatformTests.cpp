@@ -7,6 +7,7 @@
 #include "platform/Paths.h"
 #include "platform/PluginHost.h"
 #include "platform/Process.h"
+#include "platform/Signature.h"
 #include "platform/StateTools.h"
 #include "platform/SystemCheck.h"
 #include "platform/Tools.h"
@@ -328,6 +329,194 @@ static void testTemplates()
     mine.replaceWithText ("my own edit", false, false, "\n");
     check (! cw.write ("Rap Lead", "x").ok && mine.loadFileAsString() == "my own edit", "an edited chain file is never replaced");
     juce::ignoreUnused (blockBodies);
+}
+
+//== bringing saved chains up to the installed plugins (sandbox) =================================================
+static void testChainUpdate()
+{
+    const auto real = Paths::fromEnvironment();
+    // the feature rule: a gap (a parameter the saved state did not hold) is filled as the presets fill it; a value the
+    // state holds is never changed
+    {
+        juce::String err;
+        auto duo = HostedPlugin::load (real.vst3.getChildFile ("Axell Duo Compressor.vst3"), 48000.0, 512, err);
+        auto gate = HostedPlugin::load (real.vst3.getChildFile ("Axell Gate.vst3"), 48000.0, 512, err);
+        auto dr = HostedPlugin::load (real.vst3.getChildFile ("Axell De-Reverb.vst3"), 48000.0, 512, err);
+        if (duo == nullptr || gate == nullptr || dr == nullptr)
+            std::printf ("skip  feature rule: Duo / Gate / De-Reverb not installed\n");
+        else
+        {
+            const juce::ValueTree old ("PARAMS");   // a state from before the features
+            juce::ValueTree knew ("PARAMS");
+            for (auto id : { "voiceHold", "essHold", "pitchHold", "trueTone" })
+                knew.appendChild (juce::ValueTree ("PARAM").setProperty ("id", id, nullptr).setProperty ("value", 0.0f, nullptr), nullptr);
+            auto has = [] (const std::vector<std::pair<juce::String, juce::String>>& v, const char* k, const char* t) {
+                for (auto& [a, b] : v) if (a == k && b == t) return true;
+                return false;
+            };
+            const auto vocal = currentFeatureSettings ("duo", *duo, old, true);
+            check (vocal.size() == 2 && has (vocal, "Voice Hold", "On") && has (vocal, "Ess Hold", "On"),
+                   "update rule: Duo in a vocal chain saved before 3.0 gains VOICE HOLD and ESS HOLD");
+            duo->selectProgram ("Master: Peak Catch");
+            const auto bus = currentFeatureSettings ("duo", *duo, old, false);
+            check (bus.size() == 1 && has (bus, "Ess Hold", duo->text ("Voice Hold").toRawUTF8()) && duo->text ("Voice Hold") == "Off",
+                   "update rule: Duo on a master chain: ESS HOLD follows VOICE HOLD (off)");
+            check (currentFeatureSettings ("duo", *duo, knew, true).empty() && currentFeatureSettings ("gate", *gate, knew, true).empty()
+                       && currentFeatureSettings ("dereverb", *dr, knew, true).empty(),
+                   "update rule: values the saved state holds (even off) are never changed");
+            check (has (currentFeatureSettings ("gate", *gate, old, true), "Pitch Hold", "On")
+                       && has (currentFeatureSettings ("dereverb", *dr, old, true), "True Tone", "On"),
+                   "update rule: Gate gains PITCH HOLD, De-Reverb TRUE TONE");
+        }
+    }
+    // end to end in a sandbox: a template's file is rebuilt (the old one backed up), a current chain stays byte for byte,
+    // a file the Dojo did not write is only touched when it is named
+    auto sandbox = Paths::sandbox (sandboxRoot.getChildFile ("update"));
+    sandbox.vst3 = real.vst3;
+    sandbox.reaperConfig().createDirectory();
+    real.reaperConfig().getChildFile ("reaper-vstplugins64.ini").copyFileTo (sandbox.reaperConfig().getChildFile ("reaper-vstplugins64.ini"));
+    ChainWriter cw (sandbox);
+    juce::StringArray problems;
+    const auto& tmpl = ChainTemplate::all()[0];
+    auto stages = cw.build (tmpl, problems);
+    const auto text = cw.chainText (stages);
+    auto otherStages = cw.build (ChainTemplate::all()[5], problems);   // different states under the template's name
+    const auto oldText = cw.chainText (otherStages);
+    const auto w1 = cw.write (tmpl.name, oldText);           // an older file of the template
+    const auto w2 = cw.write ("My Lead", text);              // a chain that is already current
+    if (! problems.isEmpty() || ! w1.ok || ! w2.ok)
+    {
+        std::printf ("skip  chain update: %s\n", problems.joinIntoString ("; ").toRawUTF8());
+        return;
+    }
+    const auto mineBefore = w2.file.loadFileAsString();
+    const auto mine = sandbox.reaperChains().getChildFile ("Hand Made.RfxChain");
+    mine.replaceWithText (text, false, false, "\n");
+    const auto res = tools::updateSavedChains (sandbox);
+    bool rebuilt = false, current = false, untouched = true;
+    for (const auto& u : res)
+    {
+        rebuilt |= u.file == w1.file && u.ok && u.changed;
+        current |= u.file == w2.file && u.ok && ! u.changed && u.message == "already current";
+        untouched &= u.file != mine;
+    }
+    const auto backups = sandbox.dojoData().getChildFile ("chain-backups").findChildFiles (juce::File::findFiles, true, "*.RfxChain");
+    check (rebuilt && w1.file.loadFileAsString() != oldText && backups.size() == 1 && backups[0].loadFileAsString() == oldText,
+           "update: a template's chain is rebuilt, the old file kept in chain-backups");
+    const auto again = tools::updateSavedChains (sandbox);
+    bool allCurrent = ! again.empty();
+    for (const auto& u : again)
+        allCurrent &= u.ok && ! u.changed;
+    check (allCurrent && sandbox.dojoData().getChildFile ("chain-backups").findChildFiles (juce::File::findFiles, true, "*.RfxChain").size() == 1,
+           "update: a second run finds everything current and backs nothing up");
+    check (current && w2.file.loadFileAsString() == mineBefore, "update: a chain with nothing to gain stays byte for byte");
+    check (untouched && mine.loadFileAsString() == text, "update: a file the Dojo did not write is left alone unless named");
+    const auto named = tools::updateSavedChains (sandbox, { mine });
+    check (named.size() == 1 && named[0].ok && named[0].message == "already current", "update: a named file is examined (" + named[0].message + ")");
+}
+
+//== signature sounds: a take through approved chains as a REAPER session (sandbox) ===============================
+static int countVst (const juce::String& block)
+{
+    int n = 0;
+    for (auto l : juce::StringArray::fromLines (block))
+        n += l.trimStart().startsWith ("<VST ") ? 1 : 0;
+    return n;
+}
+
+static void testSignature()
+{
+    const auto real = Paths::fromEnvironment();
+    auto sandbox = Paths::sandbox (sandboxRoot.getChildFile ("signature"));
+    sandbox.vst3 = real.vst3;
+    sandbox.reaperConfig().createDirectory();
+    real.reaperConfig().getChildFile ("reaper-vstplugins64.ini").copyFileTo (sandbox.reaperConfig().getChildFile ("reaper-vstplugins64.ini"));
+    ChainWriter cw (sandbox);
+    juce::StringArray problems;
+    const ChainTemplate* vocalT = nullptr;
+    const ChainTemplate* masterT = nullptr;
+    for (const auto& t : ChainTemplate::all())
+    {
+        vocalT = t.id == "rap-lead" ? &t : vocalT;
+        masterT = t.id == "master-loud" ? &t : masterT;
+    }
+    auto vs = cw.build (*vocalT, problems);
+    auto ms = cw.build (*masterT, problems);
+    if (! problems.isEmpty())
+    {
+        std::printf ("skip  signature: %s\n", problems.joinIntoString ("; ").toRawUTF8());
+        return;
+    }
+    const auto vw = cw.write ("Sig - Vocal Chain", cw.chainText (vs));
+    const auto mw = cw.write ("Sig - Master Chain", cw.chainText (ms));
+    Signature::folder (sandbox).createDirectory();
+    Signature::folder (sandbox).getChildFile ("Sig.xml").replaceWithText (
+        "<SIGNATURE name=\"Sig\" vocalChain=\"Sig - Vocal Chain.RfxChain\" masterChain=\"Sig - Master Chain.RfxChain\" referenceLufs=\"-30\" "
+        "referenceTake=\"ref.wav\"><TARGET lufs=\"-14\" masterInput=\"-2.5\"/><TARGET lufs=\"-11\" masterInput=\"1.0\"/></SIGNATURE>");
+    Signature::folder (sandbox).getChildFile ("Broken.xml").replaceWithText ("<SIGNATURE name=\"Broken\" vocalChain=\"missing.RfxChain\"/>");
+    const auto sigs = Signature::all (sandbox);
+    check (vw.ok && mw.ok && sigs.size() == 1 && sigs[0].name == "Sig" && sigs[0].targets.size() == 2,
+           "signature: read from the Dojo's signatures folder (one without its chains is left out)");
+    if (sigs.size() != 1)
+        return;
+    const auto& sig = sigs[0];
+    // a take: 20 s of a voice-like signal at a known level
+    wavio::Audio a;
+    a.rate = 48000.0;
+    a.ch.assign (1, std::vector<float> (48000 * 20));
+    double ph = 0;
+    for (size_t i = 0; i < a.ch[0].size(); ++i)
+    {
+        ph += 2.0 * juce::MathConstants<double>::pi * 150.0 / 48000.0;
+        double y = 0;
+        for (int h = 1; h < 20; ++h)
+            y += std::sin (h * ph) / h;
+        a.ch[0][i] = (float) (0.05 * y * (std::fmod (i / 48000.0, 0.5) < 0.35 ? 1.0 : 0.02));
+    }
+    const auto take = sandboxRoot.getChildFile ("signature/take one.wav");
+    wavio::write (take.getFullPathName().toStdString(), a);
+    const auto r1 = makeSignatureSession (sandbox, sig, take, -14.0f, true);
+    const auto r2 = makeSignatureSession (sandbox, sig, take, -14.0f, true);
+    check (r1.ok && r2.ok && r1.project.existsAsFile() && r2.project.existsAsFile() && r1.project != r2.project
+               && r1.project.isAChildOf (sandbox.home) && r1.message.startsWith ("Session written"),
+           "signature: a session is written for the take, never replacing one; in a sandbox REAPER is not started (" + r1.message + ")");
+    check (std::abs (r1.gainDb - (-30.0f - r1.takeLufs)) < 0.01f, "signature: the take is matched to the reference level ("
+           + juce::String (r1.takeLufs, 1) + " LUFS -> " + juce::String (r1.gainDb, 2) + " dB)");
+    const auto text = r1.project.loadFileAsString();
+    const auto master = text.fromFirstOccurrenceOf ("<MASTERFXLIST", false, false).upToFirstOccurrenceOf ("\n  >\n", false, false);
+    const auto track = text.fromFirstOccurrenceOf ("<FXCHAIN", false, false).upToFirstOccurrenceOf ("<ITEM", false, false);
+    const auto vol = text.fromFirstOccurrenceOf ("VOLPAN ", false, false).upToFirstOccurrenceOf (" ", false, false).getDoubleValue();
+    check (countVst (master) == (int) ms.size() && countVst (track) == (int) vs.size()
+               && std::abs (juce::Decibels::gainToDecibels (vol) - r1.gainDb) < 0.01
+               && text.contains ("FILE " + juce::String (reaper::quote (take.getFullPathName().toStdString())))
+               && text.contains ("LENGTH 20.000000") && text.contains ("NAME \"Vocal - Sig\""),
+           "signature: the project holds the master chain on the master, the vocal chain and the gain-matched take on a track");
+    // the master chain: Axell Master's INPUT at the target's value, every other stage byte for byte
+    juce::String err;
+    const auto m14 = signatureMasterChain (sandbox, sig, sig.targets[0], err);
+    const auto tmp = sandboxRoot.getChildFile ("signature/m14.RfxChain");
+    tmp.replaceWithText (m14);
+    auto loaded = tools::loadChain (sandbox, tmp, 48000.0);
+    bool others = loaded.ok() && loaded.stages.size() == ms.size(), input = false;
+    for (size_t i = 0; others && i < ms.size(); ++i)
+    {
+        if (ms[i].product->key == "master")
+            input = loaded.stages[i].plugin->text ("Input") == "-2.5 dB" && loaded.stages[i].presetName == ms[i].presetName;
+        else
+            others = loaded.stages[i].component == ms[i].component;
+    }
+    check (others && input, "signature: master chain - Axell Master's INPUT set for the target, every other stage's state byte for byte (" + err + ")");
+    check (! makeSignatureSession (sandbox, sig, take, -9.0f, false).ok, "signature: a target it does not have is refused");
+    const auto silent = sandboxRoot.getChildFile ("signature/silent.wav");
+    wavio::Audio z;
+    z.rate = 48000.0;
+    z.ch.assign (2, std::vector<float> (48000 * 10, 0.0f));
+    wavio::write (silent.getFullPathName().toStdString(), z);
+    const auto rs = makeSignatureSession (sandbox, sig, silent, -14.0f, false);
+    check (! rs.ok && rs.message.contains ("silent"), "signature: a silent take is refused (" + rs.message + ")");
+    check (! makeSignatureSession (sandbox, sig, vw.file, -14.0f, false).ok, "signature: a file that is not audio is refused");
+    check (std::abs (signatureGainDb (sig, -80.0f) - 40.0f) < 1e-6f && std::abs (signatureGainDb (sig, 10.0f) + 30.0f) < 1e-6f,
+           "signature: the gain match is limited to -30 .. +40 dB");
 }
 
 //== Voice Profile on the artist's dry take (sandbox output) ======================================================
@@ -704,7 +893,53 @@ int main (int argc, char** argv)
             }
             dir.getChildFile ("profile-tracking.expect").replaceWithText (e, false, false, "\n");
         }
-        std::printf ("prepared %d chains in %s\n", (int) ChainTemplate::all().size() + 3, dir.getFullPathName().toRawUTF8());
+        // a signature session (template chains as the pair, a synthetic take): master chain on the master with Axell
+        // Master's INPUT for the target, the vocal chain and the gain-matched take on the track
+        {
+            ChainWriter cw (withUid);
+            juce::StringArray problems;
+            const ChainTemplate* vt = nullptr;
+            const ChainTemplate* mt = nullptr;
+            for (const auto& t : ChainTemplate::all())
+            {
+                vt = t.id == "rap-lead" ? &t : vt;
+                mt = t.id == "master-loud" ? &t : mt;
+            }
+            auto vs = cw.build (*vt, problems);
+            auto ms = cw.build (*mt, problems);
+            cw.write ("Verify - Vocal Chain", cw.chainText (vs));
+            cw.write ("Verify - Master Chain", cw.chainText (ms));
+            Signature::folder (withUid).createDirectory();
+            Signature::folder (withUid).getChildFile ("Verify.xml").replaceWithText (
+                "<SIGNATURE name=\"Verify\" vocalChain=\"Verify - Vocal Chain.RfxChain\" masterChain=\"Verify - Master Chain.RfxChain\" "
+                "referenceLufs=\"-30\" referenceTake=\"x.wav\"><TARGET lufs=\"-14\" masterInput=\"-2.5\"/></SIGNATURE>");
+            wavio::Audio a;
+            a.rate = 48000.0;
+            a.ch.assign (1, std::vector<float> (48000 * 12));
+            for (size_t i = 0; i < a.ch[0].size(); ++i)
+                a.ch[0][i] = (float) (0.1 * std::sin (2.0 * juce::MathConstants<double>::pi * 220.0 * (double) i / 48000.0)
+                                      * (std::fmod ((double) i / 48000.0, 0.5) < 0.35 ? 1.0 : 0.05));
+            const auto take = dir.getChildFile ("signature-take.wav");
+            wavio::write (take.getFullPathName().toStdString(), a);
+            const auto sigs = Signature::all (withUid);
+            const auto r = sigs.empty() ? SignatureSession {} : makeSignatureSession (withUid, sigs[0], take, -14.0f, false);
+            if (! r.ok || ! problems.isEmpty())
+            {
+                std::printf ("signature session failed: %s %s\n", r.message.toRawUTF8(), problems.joinIntoString ("; ").toRawUTF8());
+                return 1;
+            }
+            r.project.copyFileTo (dir.getChildFile ("signature.RPP"));
+            juce::String e = expect (vs, nullptr);
+            for (size_t i = 0; i < ms.size(); ++i)
+            {
+                e << "MFX\t" << (int) i << "\t" << ms[i].product->name << "\t" << ms[i].presetName << "\n";
+                if (ms[i].product->key == "master")
+                    e << "MP\t" << (int) i << "\tInput\t-2.5 dB\n";
+            }
+            e << "VOL\t" << juce::String (r.gainDb, 4) << "\n";
+            dir.getChildFile ("signature.expect").replaceWithText (e, false, false, "\n");
+        }
+        std::printf ("prepared %d chains in %s\n", (int) ChainTemplate::all().size() + 4, dir.getFullPathName().toRawUTF8());
         return 0;
     }
     // De-Reverb presets as single-plugin REAPER chains, each loudness-matched on a take. The list is personal (takes,
@@ -772,6 +1007,8 @@ int main (int argc, char** argv)
     testHosting();
     testSystemCheck();
     testTemplates();
+    testChainUpdate();
+    testSignature();
     testProfile();
     testV2();
     if (! (argc > 1 && juce::String (argv[1]) == "--keep"))

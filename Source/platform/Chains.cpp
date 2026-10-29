@@ -42,8 +42,36 @@ const std::vector<ChainTemplate>& ChainTemplate::all()
         { "master-loud", "Master - Loud", "Master", "Loud boom bap master at -9 LUFS that stays clean after streaming codecs.",
           { S { "penta", "Master - Loudness Prep", {} }, S { "duo", "Master: Peak Catch", {} },
             S { "master", "Boom Bap Loud, Codec-Ready (-9)", {} } } },
+        { "space-plate-send", "Vocal Plate (send)", "Vocal FX", "For a send / aux track: Axell Space's vocal plate, 100 % wet, "
+          "the esses kept out of the tail and the reverb stepping back while you rap.",
+          { S { "space", "Send: Vocal Plate (100 % wet)", {} } } },
+        { "space-throw-send", "Delay Throw (send)", "Vocal FX", "For a send / aux track: a tempo-synced 1/4 delay, 100 % wet, "
+          "darker and thinner with every repeat, the esses kept out.",
+          { S { "space", "Send: 1/4 Delay (100 % wet)", {} } } },
     };
     return list;
+}
+
+std::vector<std::pair<juce::String, juce::String>> currentFeatureSettings (const juce::String& key, const HostedPlugin& p,
+                                                                            const juce::ValueTree& saved, bool vocalChain)
+{
+    std::vector<std::pair<juce::String, juce::String>> out;
+    // the saved state already knew this parameter (it holds a value for it)
+    auto knew = [&saved] (const char* id) { return saved.getChildWithProperty ("id", id).isValid() || saved.hasProperty (id); };
+    auto gap = [&] (const char* id, const char* param) { return ! knew (id) && p.hasParameter (param); };
+    if (key == "dereverb" && gap ("trueTone", "True Tone"))
+        out.push_back ({ "True Tone", "On" });
+    else if (key == "gate" && gap ("pitchHold", "Pitch Hold"))
+        out.push_back ({ "Pitch Hold", "On" });
+    else if (key == "duo" || key == "master")
+    {
+        juce::String voice = p.hasParameter ("Voice Hold") ? p.text ("Voice Hold") : juce::String();
+        if (vocalChain && gap ("voiceHold", "Voice Hold"))
+            out.push_back ({ "Voice Hold", voice = "On" });
+        if (gap ("essHold", "Ess Hold") && voice.isNotEmpty())
+            out.push_back ({ "Ess Hold", vocalChain ? juce::String ("On") : voice });
+    }
+    return out;
 }
 
 std::vector<BuiltStage> ChainWriter::build (const ChainTemplate& t, juce::StringArray& problems) const
@@ -155,7 +183,7 @@ void ChainWriter::remember (const juce::File& f) const
     xml->writeTo (ledger());
 }
 
-ChainWriter::Written ChainWriter::write (const juce::String& fileName, const juce::String& text) const
+ChainWriter::Written ChainWriter::write (const juce::String& fileName, const juce::String& text, bool replaceUnlisted) const
 {
     Written w;
     const auto folder = paths.reaperChains();
@@ -165,7 +193,7 @@ ChainWriter::Written ChainWriter::write (const juce::String& fileName, const juc
         return w;
     }
     w.file = folder.getChildFile (juce::File::createLegalFileName (fileName) + ".RfxChain");
-    if (w.file.existsAsFile() && ! wroteBefore (w.file))
+    if (w.file.existsAsFile() && ! replaceUnlisted && ! wroteBefore (w.file))
     {
         w.message = "\"" + w.file.getFileName() + "\" exists and was not written by the Dojo (or was edited since); it was left as it is.";
         return w;

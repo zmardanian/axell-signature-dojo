@@ -4,6 +4,7 @@
 // every long task runs on a worker thread, reports progress, and can be cancelled when the app closes.
 #include "../platform/Chains.h"
 #include "../platform/ProfileEngine.h"
+#include "../platform/Signature.h"
 #include "../platform/Suite.h"
 #include "../platform/SystemCheck.h"
 #include "../platform/Tools.h"
@@ -83,6 +84,14 @@ public:
     std::map<juce::String, bool> chainBusy;
     bool chainInstalled (const ChainTemplate&) const;
     void installChain (const ChainTemplate&);
+    // brings every chain the Dojo saved up to the installed plugins (tools::updateSavedChains); the result goes to
+    // reaperMessage
+    void updateSavedChains();
+    // a take through a signature sound, opened in REAPER as a session (gain-matched, master at `lufs`)
+    std::vector<Signature> signatures() const { return Signature::all (paths); }
+    void openSignature (const Signature&, const juce::File& take, float lufs);
+    bool signatureBusy = false;
+    bool chainsUpdating = false;
     // profile chains the Dojo saved ("<name> - Vocal Chain.RfxChain"), newest first
     juce::Array<juce::File> profileChains() const;
     juce::String reaperMessage;

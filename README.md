@@ -2,21 +2,22 @@
 
 [![CI](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg)](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml)
 
-**Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the six plugins, tunes a
+**Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the seven plugins, tunes a
 complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation.
 
 ![Axell Signature Dojo](docs/screenshots/plugins.png)
 
-## The suite (all at 3.0, connected through one shared core)
+## The suite (connected through one shared core)
 
-| Plugin | What it is | New in 3.0 (from another plugin of the suite) |
+| Plugin | What it is | Latest |
 |---|---|---|
-| [Axell De-Reverb](https://github.com/zmardanian/axell-dereverb) 3.0.0 | removes the room from a close vocal (a trained network) | **LIVE**: zero latency for recording (Velvet's minimum-phase method) |
-| [Axell Gate](https://github.com/zmardanian/axell-gate) 3.0.0 | a gate that hears the voice and the room, removes headphone bleed, shapes drums | a second voice network trained on 111 voices (Velvet's data) |
-| [Axell Penta EQ](https://github.com/zmardanian/axell-penta-eq) 3.0.0 | analog-matched parametric, dynamic and spectral EQ with a character rack | **Ess** detector source (Velvet's sibilance network) |
-| [Axell Duo Compressor](https://github.com/zmardanian/axell-duo-compressor) 3.0.0 | FET + opto compressor and true-peak limiter | **VOICE HOLD** (Gate's voice detector): pauses no longer lifted |
-| [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.1 | neural de-esser + tape / console / tube warmth | its detectors and zero-latency method now shared with the others |
-| [Axell Master](https://github.com/zmardanian/axell-master) 3.0.0 | clipper, true-peak limiter, loudness, streaming-codec check | **VOICE HOLD** for a vocal bus (Duo's method in the shared limiter) |
+| [Axell De-Reverb](https://github.com/zmardanian/axell-dereverb) 4.0.0 | removes the room from a close vocal (a trained network), LIVE mode for recording | **TRUE TONE**: gives back the low end room removal takes too much of |
+| [Axell Gate](https://github.com/zmardanian/axell-gate) 4.0.0 | a gate that hears the voice and the room, removes headphone bleed, shapes drums | **PITCH HOLD**: soft syllables stay open in the zero-latency gate |
+| [Axell Penta EQ](https://github.com/zmardanian/axell-penta-eq) 3.0.1 | analog-matched parametric, dynamic and spectral EQ with a character rack | **Ess** detector source (Velvet's sibilance network) |
+| [Axell Duo Compressor](https://github.com/zmardanian/axell-duo-compressor) 4.0.2 | FET + opto compressor and true-peak limiter | **ESS HOLD**: the gain holds through your esses (no lifted esses) |
+| [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.3 | neural de-esser + tape / console / tube warmth | the zero-latency LIVE de-esser |
+| [Axell Master](https://github.com/zmardanian/axell-master) 4.0.2 | clipper, true-peak limiter, loudness, streaming-codec check | **ESS HOLD** for a vocal bus |
+| [Axell Space](https://github.com/zmardanian/axell-space) 1.0.1 | vocal reverb (booth / room / plate / hall) + tempo-synced delay | **ESS DUCK**: the esses kept out of the tails (the suite's sibilance network) |
 
 ## What the Dojo does
 
@@ -32,7 +33,11 @@ complete vocal chain to *your* voice from one dry take, and sets up REAPER and y
 - **Open in REAPER**: a new REAPER project with an armed vocal track holding your chain, in one click.
 - **Step-through listening, Reference Match and confidence**: hear your take after each plugin; move your tone toward
   a reference vocal (measured on the rendered take); every measurement says how far to trust it.
-- **Chains**: ten ready-made REAPER FX chains (vocals, beats, master, tracking) from the plugins' factory presets.
+- **Signature sound** (3.1): your approved vocal + master chains, one click from a dry take to a REAPER session -
+  the take matched to the level the chains were tuned on, the master at -14 or -11 LUFS.
+- **Chains**: twelve ready-made REAPER FX chains (vocals, vocal FX sends, beats, master, tracking) from the plugins'
+  factory presets; **Update saved chains** brings chains saved with older plugin versions up to the installed ones,
+  keeping every value you set.
 - **Tools**: Batch Render (many takes through one chain), Streaming Preview (what Spotify, Apple Music, YouTube,
   Tidal and Amazon Music do to your master, and how it sounds there), Backup & Move (checksum-verified, never
   overwriting).
@@ -40,12 +45,13 @@ complete vocal chain to *your* voice from one dry take, and sets up REAPER and y
   realtime priority, system effects. Checks only read; fixes run in your account after you confirm.
 
 Terminal: `--check` (workstation report), `--profile <take> [--reference <vocal>] [--name N] [--reduction %] [--gate-range dB] [--save [--open]]`,
-`--render <chain.RfxChain> <out folder> <take>...` (Batch Render). `AXELL_DOJO_SANDBOX=<dir>` keeps
+`--render <chain.RfxChain> <out folder> <take>...` (Batch Render), `--signature <name> --take <file> --target <LUFS> [--open]`,
+`--update-chains [chain.RfxChain...]`. `AXELL_DOJO_SANDBOX=<dir>` keeps
 every file the Dojo touches inside `<dir>`.
 
 ## Install
 
-Download `AxellSignatureDojo-3.0.2-linux-x86_64.tar.gz` from the
+Download `AxellSignatureDojo-3.1.0-linux-x86_64.tar.gz` from the
 [latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) (optional: `sha256sum -c
 SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu. Linux x86_64,
 glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
@@ -61,6 +67,7 @@ glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a fo
 | **3.0.0** | The suite at 3.0, connected: the tracking chain includes De-Reverb LIVE (0 ms); profiles tuned on the 3.0 plugins (Duo's VOICE HOLD, Gate 3.0, Master's VOICE HOLD); Axell's Dojo brush title | tracking chain 5 plugins, 3.4 ms; core 64/64, platform 149/149, REAPER 14/14 |
 | **3.0.1** | New app icon: the Dojo's 道 hanko seal on washi inside a gold ensō, installed in every size | legible down to 32 px; no cached older icon left behind |
 | **3.0.2** | The seal icon redrawn as a calligraphy page: sumi-ink ensō on washi with the 道 seal, evenly lit | clear on dark desktops (3.0.1's tile was dark at the edges) |
+| **3.1.0** | Signature sounds (approved chains one click from a take: level-matched, master at -14 / -11 LUFS); Update saved chains; Axell Space and its send chains | 3 other takes land at -14.0 +-0.05 LUFS; updated Amber chain on 28 takes: UTMOS 2.267 -> 2.279, esses -0.5 dB; core 64/64, platform 175/175, ASan/UBSan clean, REAPER 17/17 |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 

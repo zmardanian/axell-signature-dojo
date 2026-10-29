@@ -63,6 +63,11 @@ int main (int argc, char** argv)
         state.installChain (ChainTemplate::all()[0]);
         state.installChain (ChainTemplate::all()[7]);
         waitIdle (state, 60000);
+        // a signature sound (the Chains page's first section): two of those chains, a generic name
+        Signature::folder (paths).createDirectory();
+        Signature::folder (paths).getChildFile ("My Sound.xml").replaceWithText (
+            "<SIGNATURE name=\"My Sound\" vocalChain=\"Rap Lead.RfxChain\" masterChain=\"Drum Bus.RfxChain\" referenceLufs=\"-30\" "
+            "referenceTake=\"my dry take.wav\"><TARGET lufs=\"-14\" masterInput=\"0\"/><TARGET lufs=\"-11\" masterInput=\"3\"/></SIGNATURE>");
         if (take.existsAsFile())
         {
             state.reference = reference;
@@ -93,7 +98,7 @@ int main (int argc, char** argv)
         shot (overview, "overview", 900);
         shot (plugins, "plugins", 1180);
         shot (profile, "voice-profile", take.existsAsFile() ? 2050 : 860);
-        shot (chains, "chains", 1500);
+        shot (chains, "chains", 1820);
         shot (studio, "tools", 1250);
         shot (workstation, "workstation", 1400);
         main.show (overview);

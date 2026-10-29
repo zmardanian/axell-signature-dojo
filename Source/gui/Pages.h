@@ -128,7 +128,11 @@ public:
 
 private:
     AppState& state;
-    juce::TextButton addAll;
+    juce::TextButton addAll, updateSaved;
+    std::vector<Signature> signatures;                   // the artist's approved sounds
+    juce::OwnedArray<juce::TextButton> signatureButtons; // one per signature and loudness target
+    juce::Rectangle<int> signatureArea;
+    std::unique_ptr<juce::FileChooser> chooser;
     juce::OwnedArray<TemplateCard> cards;
     juce::OwnedArray<juce::TextButton> voiceButtons;   // "Open in REAPER" per saved profile chain
     juce::Array<juce::File> voiceChains;

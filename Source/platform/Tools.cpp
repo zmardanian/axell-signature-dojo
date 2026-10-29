@@ -61,6 +61,114 @@ LoadedChain loadChain (const Paths& paths, const juce::File& rfx, double rate)
     return out;
 }
 
+//== updating saved chains =======================================================================================
+namespace
+{
+ChainUpdate updateOne (const Paths& paths, const juce::File& file, bool named, const juce::File& backupDir)
+{
+    ChainUpdate u;
+    u.file = file;
+    ChainWriter cw (paths);
+    const auto name = file.getFileNameWithoutExtension();
+    std::vector<BuiltStage> stages;
+    const ChainTemplate* tmpl = nullptr;
+    for (const auto& t : ChainTemplate::all())
+        if (juce::File::createLegalFileName (t.name) == name)
+            tmpl = &t;
+    if (tmpl != nullptr)
+    {
+        juce::StringArray problems;
+        stages = cw.build (*tmpl, problems);
+        if (! problems.isEmpty() || stages.size() != tmpl->stages.size())
+        {
+            u.message = problems.joinIntoString ("; ");
+            return u;
+        }
+        // the file already holds exactly these states: nothing to do
+        auto existing = loadChain (paths, file, 48000.0);
+        bool same = existing.ok() && existing.stages.size() == stages.size();
+        for (size_t i = 0; same && i < stages.size(); ++i)
+            same = existing.stages[i].component == stages[i].component && existing.stages[i].presetName == stages[i].presetName;
+        if (same)
+        {
+            u.ok = true;
+            u.message = "already current";
+            return u;
+        }
+        u.changes.add ("rebuilt from the template with the installed plugins' presets");
+    }
+    else
+    {
+        auto loaded = loadChain (paths, file, 48000.0);
+        if (! loaded.ok())
+        {
+            u.message = loaded.problems.joinIntoString ("; ");
+            return u;
+        }
+        bool vocal = false;
+        for (const auto& b : loaded.stages)
+            vocal |= b.product->key == "dereverb" || b.product->key == "gate" || b.product->key == "velvet";
+        for (auto& b : loaded.stages)
+        {
+            const auto saved = state::treeFromComponent (b.component);
+            for (const auto& [param, text] : currentFeatureSettings (b.product->key, *b.plugin, saved, vocal))
+                if (b.plugin->text (param) != text)
+                {
+                    juce::String why;
+                    if (! b.plugin->set (param, text, &why))
+                    {
+                        u.message = b.product->name + ": " + why;
+                        return u;
+                    }
+                    u.changes.add (b.product->name + ": " + param + " " + text);
+                }
+            ChainWriter::capture (b, b.presetName.isNotEmpty() ? b.presetName : b.plugin->programName());
+        }
+        if (u.changes.isEmpty())   // nothing to gain: the file stays exactly as it is
+        {
+            u.ok = true;
+            u.message = "already current";
+            return u;
+        }
+        stages = std::move (loaded.stages);
+    }
+    if (! backupDir.createDirectory() || ! file.copyFileTo (backupDir.getChildFile (file.getFileName())))
+    {
+        u.message = "Cannot back up " + file.getFileName() + " into " + backupDir.getFullPathName();
+        return u;
+    }
+    const auto w = cw.write (name, cw.chainText (stages), named);
+    u.ok = w.ok;
+    u.changed = w.ok;
+    u.message = w.ok ? "updated (the old file is in " + backupDir.getFullPathName() + ")" : w.message;
+    return u;
+}
+} // namespace
+
+std::vector<ChainUpdate> updateSavedChains (const Paths& paths, const juce::Array<juce::File>& files)
+{
+    std::vector<ChainUpdate> out;
+    const auto backupDir = paths.dojoData().getChildFile ("chain-backups").getChildFile (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H%M%S"));
+    ChainWriter cw (paths);
+    if (files.isEmpty())
+    {
+        for (const auto& f : paths.reaperChains().findChildFiles (juce::File::findFiles, false, "*.RfxChain"))
+            if (cw.wroteBefore (f))
+                out.push_back (updateOne (paths, f, false, backupDir));
+    }
+    else
+        for (const auto& f : files)
+        {
+            if (! f.isAChildOf (paths.reaperChains()))
+            {
+                out.push_back ({ f, false, false, "not in REAPER's FX chain folder (" + paths.reaperChains().getFullPathName() + ")", {} });
+                continue;
+            }
+            out.push_back (updateOne (paths, f, true, backupDir));
+        }
+    return out;
+}
+
 //== Batch Render ================================================================================================
 std::vector<RenderedFile> batchRender (const Paths& paths, const juce::File& rfx, const juce::Array<juce::File>& files,
                                        const juce::File& outFolder, const Progress& progress, const std::atomic<bool>* cancel)

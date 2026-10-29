@@ -85,6 +85,14 @@ ChainsPage::ChainsPage (AppState& s) : state (s)
             state.installChain (t);
     };
     content().addAndMakeVisible (addAll);
+    variant (updateSaved, "ghost");
+    updateSaved.getProperties().set ("icon", "refresh");
+    updateSaved.setButtonText ("Update saved chains");
+    updateSaved.setTooltip ("Brings the chains the Dojo saved up to the installed plugins: template chains are rebuilt from the "
+                            "current presets; your Voice Profile chains keep every setting and gain the new features (TRUE TONE, "
+                            "PITCH HOLD, VOICE HOLD and ESS HOLD). The old files are kept in the Dojo's chain-backups folder.");
+    updateSaved.onClick = [this] { state.updateSavedChains(); };
+    content().addAndMakeVisible (updateSaved);
     for (const auto& t : ChainTemplate::all())
         content().addAndMakeVisible (cards.add (new TemplateCard (state, t)));
 }
@@ -93,6 +101,36 @@ void ChainsPage::refresh()
 {
     for (auto* c : cards)
         c->update();
+    auto sigs = state.signatures();
+    auto key = [] (const std::vector<Signature>& v) { juce::String k; for (auto& s : v) { k << s.name << "|"; for (auto& t : s.targets) k << t.lufs << ","; } return k; };
+    if (key (sigs) != key (signatures))
+    {
+        signatures = std::move (sigs);
+        signatureButtons.clear();
+        for (const auto& s : signatures)
+            for (const auto& t : s.targets)
+            {
+                auto* b = signatureButtons.add (new juce::TextButton ("Take at " + juce::String (juce::roundToInt (t.lufs)) + " LUFS..."));
+                variant (*b, "primary", theme::ok);
+                b->getProperties().set ("icon", "play");
+                b->setTooltip ("Choose a dry take: it is matched to the level " + s.name + " was tuned on and opens in REAPER with the "
+                               "vocal chain on its track and the master chain on the master, landing at " + juce::String (juce::roundToInt (t.lufs)) + " LUFS.");
+                b->onClick = [this, s, lufs = t.lufs]
+                {
+                    chooser = std::make_unique<juce::FileChooser> ("A dry take for " + s.name, juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+                                                                   "*.wav;*.flac;*.mp3;*.ogg");
+                    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                                          [this, s, lufs] (const juce::FileChooser& fc)
+                                          {
+                                              if (fc.getResult().existsAsFile())
+                                                  state.openSignature (s, fc.getResult(), lufs);
+                                          });
+                };
+                content().addAndMakeVisible (b);
+            }
+    }
+    for (auto* b : signatureButtons)
+        b->setEnabled (! state.signatureBusy);
     if (const auto now = state.profileChains(); now != voiceChains)
     {
         voiceChains = now;
@@ -114,8 +152,29 @@ int ChainsPage::layout (int width)
 {
     const int m = kMargin;
     addAll.setBounds (width - m - 200, 24, 200, 34);
+    updateSaved.setBounds (addAll.getX() - 12 - 210, 24, 210, 34);
+    updateSaved.setEnabled (! state.chainsUpdating);
     int y = kHeader + 6;
     groupTitles.clear();
+    // your signature sounds: approved chain pairs, one click from a take to a session
+    signatureArea = {};
+    if (! signatures.empty())
+    {
+        groupTitles.push_back ({ "Your signature sound", y });
+        y += 34;
+        signatureArea = { m, y, width - 2 * m, 4 + 70 * (int) signatures.size() };
+        int bi = 0;
+        for (size_t i = 0; i < signatures.size(); ++i)
+        {
+            // the targets left to right in the order the signature lists them
+            int x = signatureArea.getRight() - 20 - 190 * (int) signatures[i].targets.size() + 10;
+            const int by = signatureArea.getY() + 18 + 70 * (int) i;
+            for (size_t k = 0; k < signatures[i].targets.size(); ++k, ++bi, x += 190)
+                if (bi < signatureButtons.size())
+                    signatureButtons[bi]->setBounds (x, by, 180, 36);
+        }
+        y = signatureArea.getBottom() + 26;
+    }
     // your voice: the chains the Voice Profile saved
     voiceArea = {};
     if (! voiceChains.isEmpty())
@@ -158,6 +217,24 @@ int ChainsPage::layout (int width)
 void ChainsPage::paintContent (juce::Graphics& g)
 {
     paintHeader (g, getWidth(), "Chains", "Ready-made REAPER FX chains from the plugins' own presets. In REAPER: FX browser > FX Chains > Axell Signature.");
+    if (! signatureArea.isEmpty())
+    {
+        theme::card (g, signatureArea.toFloat(), theme::ok);
+        for (size_t i = 0; i < signatures.size(); ++i)
+        {
+            const auto& s = signatures[i];
+            const float y = (float) signatureArea.getY() + 14.0f + 70.0f * (float) i;
+            const int textW = signatureArea.getWidth() - 40 - 190 * (int) s.targets.size();
+            g.setColour (theme::text);
+            g.setFont (theme::bodyBold().withHeight (16.0f));
+            g.drawText (s.name, signatureArea.getX() + 20, (int) y, textW, 22, juce::Justification::centredLeft);
+            g.setColour (theme::dim);
+            g.setFont (theme::small());
+            g.drawFittedText (s.description.isNotEmpty() ? s.description
+                                                         : "Your approved vocal + master chains. A take is matched to the level of \"" + s.referenceTake + "\" first.",
+                              signatureArea.getX() + 20, (int) y + 22, textW, 34, juce::Justification::topLeft, 2);
+        }
+    }
     if (! voiceArea.isEmpty())
     {
         theme::card (g, voiceArea.toFloat(), theme::ok);

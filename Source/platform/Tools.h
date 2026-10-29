@@ -18,6 +18,20 @@ struct LoadedChain
 };
 LoadedChain loadChain (const Paths&, const juce::File& rfxChain, double sampleRate);
 
+//== bring saved chains up to the installed plugins ================================================================
+// A chain named like a template is rebuilt from it (the current presets); any other chain (a Voice Profile's, a single
+// De-Reverb setting) keeps every setting and gains the current features (currentFeatureSettings). The old file is
+// copied to <Dojo data>/chain-backups/<time>/ first. Without `files`: every chain the Dojo wrote and that is unchanged
+// since; a file named in `files` is updated even if the Dojo did not write it (the user chose it).
+struct ChainUpdate
+{
+    juce::File file;
+    bool ok = false, changed = false;
+    juce::String message;
+    juce::StringArray changes;
+};
+std::vector<ChainUpdate> updateSavedChains (const Paths&, const juce::Array<juce::File>& files = {});
+
 //== Batch Render ================================================================================================
 struct RenderedFile
 {

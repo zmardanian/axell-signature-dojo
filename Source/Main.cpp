@@ -10,6 +10,7 @@
 //   AXELL_DOJO_SANDBOX=<folder>     every folder the Dojo touches lives under <folder> (testing, demos)
 #include "gui/MainComponent.h"
 #include "platform/ProfileEngine.h"
+#include "platform/Signature.h"
 #include "platform/Tools.h"
 #include "gui/Theme.h"
 
@@ -45,6 +46,18 @@ public:
         if (commandLine.contains ("--check"))
         {
             setApplicationReturnValue (printChecks());
+            quit();
+            return;
+        }
+        if (commandLine.contains ("--signature"))
+        {
+            setApplicationReturnValue (runSignature (getCommandLineParameterArray()));
+            quit();
+            return;
+        }
+        if (commandLine.contains ("--update-chains"))
+        {
+            setApplicationReturnValue (runUpdateChains (getCommandLineParameterArray()));
             quit();
             return;
         }
@@ -239,6 +252,74 @@ private:
                              r.inLufs, r.outLufs, r.outTruePeakDbtp);
             else
                 std::printf ("%s: %s\n", r.source.getFileName().toRawUTF8(), r.message.toRawUTF8());
+        }
+        return failed > 0 ? 1 : 0;
+    }
+
+    // --signature [<name> --take <file> --target <LUFS> [--open]]: a take through a signature sound (gain-matched, master
+    // at the target) as a REAPER session; without a take it lists the signatures
+    static int runSignature (const juce::StringArray& args)
+    {
+        const auto paths = Paths::fromEnvironment();
+        const auto sigs = Signature::all (paths);
+        juce::String name, takeArg;
+        float target = -14.0f;
+        bool open = false;
+        for (int i = 0; i < args.size(); ++i)
+        {
+            if (args[i] == "--signature" && i + 1 < args.size() && ! args[i + 1].startsWith ("--"))
+                name = args[++i];
+            else if (args[i] == "--take" && i + 1 < args.size())
+                takeArg = args[++i];
+            else if (args[i] == "--target" && i + 1 < args.size())
+                target = args[++i].getFloatValue();
+            else if (args[i] == "--open")
+                open = true;
+        }
+        if (name.isEmpty() || takeArg.isEmpty())
+        {
+            for (const auto& s : sigs)
+            {
+                juce::String t;
+                for (const auto& x : s.targets)
+                    t << juce::String (juce::roundToInt (x.lufs)) << " ";
+                std::printf ("%-20s reference %.1f LUFS (%s), targets %s LUFS\n", s.name.toRawUTF8(), s.referenceLufs, s.referenceTake.toRawUTF8(), t.trim().toRawUTF8());
+            }
+            if (sigs.empty())
+                std::printf ("No signature sounds in %s\n", Signature::folder (paths).getFullPathName().toRawUTF8());
+            std::printf ("usage: --signature <name> --take <file> --target <LUFS> [--open]\n");
+            return name.isEmpty() ? 0 : 2;
+        }
+        for (const auto& s : sigs)
+            if (s.name == name)
+            {
+                const auto take = juce::File::getCurrentWorkingDirectory().getChildFile (takeArg);
+                const auto r = makeSignatureSession (paths, s, take, target, open);
+                std::printf ("%s\n", r.message.toRawUTF8());
+                return r.ok ? 0 : 1;
+            }
+        std::printf ("No signature named \"%s\".\n", name.toRawUTF8());
+        return 2;
+    }
+
+    // --update-chains [chain.RfxChain ...]: every chain the Dojo wrote (or the named ones) brought up to the
+    // installed plugins; the old files are kept in the Dojo's chain-backups folder
+    static int runUpdateChains (const juce::StringArray& args)
+    {
+        const auto paths = Paths::fromEnvironment();
+        const auto cwd = juce::File::getCurrentWorkingDirectory();
+        juce::Array<juce::File> files;
+        for (int i = args.indexOf ("--update-chains") + 1; i < args.size(); ++i)
+            files.add (args[i].startsWithChar ('/') ? juce::File (args[i]) : paths.reaperChains().getChildFile (args[i]).existsAsFile()
+                                                                                 ? paths.reaperChains().getChildFile (args[i])
+                                                                                 : cwd.getChildFile (args[i]));
+        int failed = 0;
+        for (const auto& u : dojo::tools::updateSavedChains (paths, files))
+        {
+            failed += u.ok ? 0 : 1;
+            std::printf ("%-48s %s\n", u.file.getFileName().toRawUTF8(), u.message.toRawUTF8());
+            for (const auto& c : u.changes)
+                std::printf ("%-48s   %s\n", "", c.toRawUTF8());
         }
         return failed > 0 ? 1 : 0;
     }
