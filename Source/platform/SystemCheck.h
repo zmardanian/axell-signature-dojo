@@ -14,7 +14,7 @@ namespace dojo
 {
 struct Fix
 {
-    enum class Kind { none, command, pipewireQuantum, reaperVstPath, parkBrokenLinks };
+    enum class Kind { none, command, pipewireQuantum, reaperVstPath, parkBrokenLinks, launch };
     Kind kind = Kind::none;
     juce::String label;              // the button: "Grant access", "Add ~/.vst3"
     juce::String confirm;            // what will happen, in full, shown before it runs
@@ -22,6 +22,8 @@ struct Fix
     int value = 0;                   // Kind::pipewireQuantum: the buffer size
     bool persistent = false;         // Kind::pipewireQuantum: also after a restart
     juce::String undo;               // how to take it back
+    int timeoutMs = 30000;           // Kind::command: how long it may take (a full plugin test takes minutes)
+    bool showOutput = false;         // Kind::command: report the program's last line instead of "Done."
 };
 
 struct Check

@@ -1,4 +1,5 @@
 #include "SystemCheck.h"
+#include "UadBridge.h"
 #include "Process.h"
 
 #include <climits>
@@ -516,6 +517,8 @@ std::vector<Check> SystemCheck::runAll() const
     out.push_back (audioServer());
     out.push_back (realtime());
     out.push_back (effects());
+    for (auto& c : UadBridge (paths).checks())   // only where the UADX toolkit is installed
+        out.push_back (c);
     return out;
 }
 
@@ -531,10 +534,28 @@ StepResult SystemCheck::apply (const Fix& f) const
             // a sandbox (tests, AXELL_DOJO_SANDBOX) never changes the live session or system: it only says what it would do
             if (paths.isSandbox)
                 return { true, "Sandbox: would run " + f.command.joinIntoString (" ") };
-            const auto r = Process::run (f.command, 30000);
+            const auto r = Process::run (f.command, f.timeoutMs);
             if (! r.started)
                 return { false, f.command[0] + " is not available." };
+            if (r.ok() && f.showOutput)
+            {
+                auto lines = juce::StringArray::fromLines (r.output.trim());
+                return { true, lines.isEmpty() ? juce::String ("Done.") : lines[lines.size() - 1].substring (0, 200) };
+            }
             return { r.ok(), r.ok() ? juce::String ("Done.") : "It did not work: " + r.output.trim().substring (0, 200) };
+        }
+        case Fix::Kind::launch:
+        {
+            // a program that keeps running (REAPER): started on its own, detached, nothing captured - the Dojo does not wait
+            if (paths.isSandbox)
+                return { true, "Sandbox: would open " + f.command.joinIntoString (" ") };
+            juce::ChildProcess child;
+            juce::StringArray args { "setsid", "-f" };
+            args.addArray (f.command);
+            if (! child.start (args, 0))
+                return { false, f.command[0] + " could not be started." };
+            child.waitForProcessToFinish (5000);   // setsid -f returns at once; the program runs on by itself
+            return { true, "Opening " + juce::File (f.command[0]).getFileName() + "..." };
         }
         case Fix::Kind::pipewireQuantum:
         {

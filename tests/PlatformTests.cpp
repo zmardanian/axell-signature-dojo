@@ -10,6 +10,7 @@
 #include "platform/Signature.h"
 #include "platform/StateTools.h"
 #include "platform/SystemCheck.h"
+#include "platform/UadBridge.h"
 #include "platform/Tools.h"
 #include "WavIO.h"
 #include "platform/Suite.h"
@@ -632,6 +633,42 @@ static void testProfile()
 }
 
 //== workstation checks ==========================================================================================
+static void testUadBridge()
+{
+    // Wine's per-prefix server directory: /tmp/.wine-UID/server-<dev hex>-<inode hex>
+    check (UadBridge::serverDir (0x3c, 0x8aafd1, 1000) == "/tmp/.wine-1000/server-3c-8aafd1", "UAD bridge: Wine's server directory for a prefix");
+    check (UadBridge::niceName ("uaudio_teletronix_la-2a_tc") == "Teletronix La-2a Tc", "UAD bridge: plugin names read nicely");
+    const auto a = UadBridge::parseAcceptance (R"({"date": "2026-10-30-0623", "results": [
+        {"plugin": "uaudio_ua_1176", "status": "PASS"}, {"plugin": "uaudio_hemisphere", "status": "NOT LICENSED"},
+        {"plugin": "uaudio_galaxy_tape_echo", "status": "NO LOAD"}]})");
+    check (a.total == 3 && a.pass == 1 && a.unlicensed == 1 && a.failing.size() == 1 && a.failing[0] == "Galaxy Tape Echo (no load)"
+           && a.notLicensed[0] == "Hemisphere", "UAD bridge: the acceptance results are read (pass / not licensed / failing)");
+    // without the toolkit the panel does not exist
+    const auto bare = Paths::sandbox (sandboxRoot.getChildFile ("uad-bare"));
+    check (UadBridge (bare).checks().empty(), "UAD bridge: no UADX toolkit on this machine - no UAD checks at all");
+    // a sandbox install: one plugin installed and bridged, no snapshot yet
+    const auto root = sandboxRoot.getChildFile ("uad");
+    const auto p = Paths::sandbox (root);
+    root.getChildFile (".local/bin/uadx-doctor").create();
+    root.getChildFile (".wine-uaconnect/drive_c/Program Files/Common Files/VST3/uaudio_ua_1176.vst3").createDirectory();
+    root.getChildFile (".vst3/yabridge/uaudio_ua_1176.vst3").createDirectory();
+    root.getChildFile (".local/share/uadx-bazzite/acceptance/latest.json").create();
+    root.getChildFile (".local/share/uadx-bazzite/acceptance/latest.json").replaceWithText (R"({"date": "d", "results": [{"plugin": "uaudio_ua_1176", "status": "PASS"}]})");
+    const auto cs = UadBridge (p).checks();
+    check (cs.size() == 5, "UAD bridge: five checks (Wine owner, set-up, plugins, rollback point, REAPER)");
+    auto find = [&cs] (const char* id) { for (auto& c : cs) if (c.id == id) return c; return Check {}; };
+    check (find ("uad-wine").status == Check::Status::ok, "UAD bridge: no foreign Wine on an idle prefix");
+    check (find ("uad-plugins").detail.startsWith ("1 of 1 work"), "UAD bridge: the plugin results are shown");
+    check (find ("uad-snapshot").status == Check::Status::warning && ! find ("uad-snapshot").fixes.empty(), "UAD bridge: no snapshot yet - a warning with a fix");
+    check (find ("uad-setup").detail.startsWith ("1 of 1 UADx plugins bridged"), "UAD bridge: bridged plugins are counted");
+    // every fix that changes something asks first and names what it runs
+    bool confirmed = true;
+    for (auto& c : cs)
+        for (auto& f : c.fixes)
+            confirmed = confirmed && f.confirm.isNotEmpty() && ! f.command.isEmpty();
+    check (confirmed, "UAD bridge: every fix explains itself before it runs");
+}
+
 static void testSystemCheck()
 {
     const juce::String ini = "[audioconfig]\r\nx=1\r\n[reaper]\r\nvstpath=/a/b;/var/home/u/.vst3\r\nother=2\r\n[REAPER2]\r\nvstpath=/zzz\r\n";
@@ -1006,6 +1043,7 @@ int main (int argc, char** argv)
     testSuite();
     testHosting();
     testSystemCheck();
+    testUadBridge();
     testTemplates();
     testChainUpdate();
     testSignature();

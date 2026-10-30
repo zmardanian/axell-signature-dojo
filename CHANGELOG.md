@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.2.0
+- **UAD bridge** (Workstation page, a new group - only on a computer that runs Universal Audio's UADx plugins through
+  the UADX toolkit: a pinned Wine build + yabridge, UA Connect and the licences installed and activated through UA's own
+  software). Five checks that only read - they never start Wine:
+  - **One Wine for the UAD prefix**: a different Wine version running the prefix breaks it (plugins fail to open, the
+    prefix's files overwritten back and forth). Found on the artist's machine and fixed; **Give it back** repairs it.
+  - **Bridge set-up**: the bridge pinned to the UAD Wine, the plugin links, all UADx plugins sharing one Wine process
+    (measured: six plugins 2.1 GB -> 0.67 GB, loading 17 % faster, the sound identical). **Re-link**, **Full diagnosis**.
+  - **UADx plugins tested**: the toolkit's acceptance test (load, process, state, CPU) - **Test all again**.
+  - **Rollback point**: the newest snapshot of the prefix - **Snapshot now** (instant on btrfs).
+  - **REAPER opens the UAD way** - **Open REAPER** (detached: the Dojo does not wait for it).
+  Every fix asks first and says what it runs. Fixes may now take as long as they need (a plugin test takes minutes)
+  and report the tool's own verdict (D31).
+- Verified: core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17.
+
 ## 3.1.1
 - **Axell Forbidden Seal** joins the suite (saturation: eight circuits, three bands, ESS GUARD): installed, updated and
   listed like the others.

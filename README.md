@@ -44,6 +44,9 @@ complete vocal chain to *your* voice from one dry take, and sets up REAPER and y
   overwriting).
 - **Workstation**: system, plugin folder, DAWs (native and Flatpak), REAPER's plugin path and scan, PipeWire buffer,
   realtime priority, system effects. Checks only read; fixes run in your account after you confirm.
+- **UAD bridge** (3.2, only where Universal Audio's UADx plugins run through the UADX toolkit): one Wine for the UAD
+  prefix, the bridge set-up, the plugins' test results, the rollback point, REAPER opened the UAD way - with Give it
+  back, Re-link, Full diagnosis, Test all again, Snapshot now and Open REAPER.
 
 Terminal: `--check` (workstation report), `--profile <take> [--reference <vocal>] [--name N] [--reduction %] [--gate-range dB] [--save [--open]]`,
 `--render <chain.RfxChain> <out folder> <take>...` (Batch Render), `--signature <name> --take <file> --target <LUFS> [--open]`,
@@ -69,6 +72,7 @@ glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a fo
 | **3.0.1** | New app icon: the Dojo's 道 hanko seal on washi inside a gold ensō, installed in every size | legible down to 32 px; no cached older icon left behind |
 | **3.0.2** | The seal icon redrawn as a calligraphy page: sumi-ink ensō on washi with the 道 seal, evenly lit | clear on dark desktops (3.0.1's tile was dark at the edges) |
 | **3.1.0** | Signature sounds (approved chains one click from a take: level-matched, master at -14 / -11 LUFS); Update saved chains; Axell Space and its send chains | 3 other takes land at -14.0 +-0.05 LUFS; updated Amber chain on 28 takes: UTMOS 2.267 -> 2.279, esses -0.5 dB; core 64/64, platform 175/175, ASan/UBSan clean, REAPER 17/17 |
+| **3.2.0** | UAD bridge on the Workstation page: read-only checks of the UAD Wine, bridge, plugin tests and rollback point, with confirmed fixes (repair, re-link, test, snapshot, open REAPER detached) | the artist's machine: a second Wine version found running the UAD prefix and fixed; 11 of 13 UADx plugins pass the bridge test; shared Wine process 2.1 -> 0.67 GB for six plugins; core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17 |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 
