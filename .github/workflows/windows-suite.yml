@@ -41,7 +41,7 @@ jobs:
             mkdir -p "dl/$repo"; ( cd "dl/$repo" && curl -fsSL -O "$url" && curl -fsSL -O "$sums" && sha256sum -c SHA256SUMS.txt --ignore-missing && tar xzf ./*-windows-x64.tar.gz )
             top=$(ls -d dl/$repo/*-windows-x64/ | head -1)
             bundle=$(cd "$top" && ls -d *.vst3 | head -1); name="${bundle%.vst3}"
-            ver=$(basename "$top" | sed 's/^[A-Za-z]*-\(.*\)-windows-x64$/\1/')
+            ver=$(basename "$top" | sed 's/^[A-Za-z0-9]*-\(.*\)-windows-x64$/\1/')
             [ -f "$top/$bundle/Contents/x86_64-win/$bundle" ] || { echo "$repo: no Windows binary"; exit 1; }
             cp -r "$top/$bundle" "$S/plugins/"
             cp "$top/LICENSE" "$S/licenses/LICENSE-${name// /}.txt"
