@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.3.1
+- **Fixed (Linux): a rare crash when the Dojo closed a plugin it had loaded.** The cause was in JUCE's VST3 *hosting*
+  code, not in the Axell plugins: on Linux the host's run loop keeps a callback for each plugin; JUCE's event loop
+  collects all ready callbacks and then runs them, so when one of them deleted the last plugin instance, the next one
+  still ran on the freed run loop. Found while validating Forbidden Seal (pluginval, built on the same JUCE code,
+  crashed at exit in ~11 % of runs - symbolized backtrace in RunLoop::Impl). The Axell core now fixes JUCE at build
+  time (cmake/JuceFixes.cmake: a weak alive flag, a fresh lookup before each call); with the fix pluginval ran 40 of 40
+  times clean. Windows was never affected (that code is Linux only).
+- The installer carries Axell Forbidden Seal 4.0.1 (a crash at extreme drive fixed, the sound unchanged).
+- Verified: core 64/64, platform 189/189 (Linux), REAPER 17/17.
+
 ## 3.3.0
 - **Windows.** The Dojo and all eight plugins now run on Windows 10 and 11 (64-bit), and so does Axell 76 (the 1176
   FET compressor, now public: github.com/zmardanian/axell-76). One installer,
