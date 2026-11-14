@@ -1,4 +1,5 @@
 #include "Pages.h"
+#include "../platform/Process.h"
 
 namespace dojo::gui
 {
@@ -201,7 +202,7 @@ PluginsPage::PluginsPage (AppState& s) : state (s)
     fromFolder.onClick = [this]
     {
         chooser = std::make_unique<juce::FileChooser> ("Folder with Axell release archives", state.sourceFolder.isDirectory() ? state.sourceFolder
-                                                                                                                              : juce::File ("/run/media"));
+                                                                                                                              : Process::removableMediaRoot());
         chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories, [this] (const juce::FileChooser& fc)
         {
             if (fc.getResult().isDirectory())

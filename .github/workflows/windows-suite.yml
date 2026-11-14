@@ -1,0 +1,80 @@
+# Builds the Windows installer of the Axell Signature Suite: the Dojo (built here with MSVC) and every plugin's
+# published Windows release (downloaded, checksum-verified against the release's SHA256SUMS.txt). Run by hand
+# (Actions > Windows suite installer > Run workflow); the installer is kept as an artifact for the release.
+# Least privilege: read-only token, no secrets, actions pinned to exact commits.
+name: Windows suite installer
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Suite version (the Dojo's)"
+        required: true
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build the Dojo (MSVC)
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64
+          cmake --build build --config Release --target AxellSignatureDojo -- -m
+      - name: Stage the Dojo and the published plugins
+        run: |
+          set -euo pipefail
+          S=staging; mkdir -p $S/app $S/plugins $S/licenses dl
+          cp "build/AxellSignatureDojo_artefacts/Release/Axell Signature Dojo.exe" $S/app/
+          cp LICENSE $S/licenses/LICENSE-Dojo.txt
+          : > packaging/windows/components.iss; : > packaging/windows/files.iss
+          for repo in axell-dereverb axell-gate axell-penta-eq axell-duo-compressor axell-velvet axell-space axell-forbidden-seal axell-master axell-76; do
+            rel=$(curl -fsSL -H "User-Agent: AxellSignatureSuite" "https://api.github.com/repos/zmardanian/$repo/releases/latest")
+            url=$(echo "$rel" | jq -r '.assets[] | select(.name | endswith("-windows-x64.tar.gz")) | .browser_download_url')
+            sums=$(echo "$rel" | jq -r '.assets[] | select(.name == "SHA256SUMS.txt") | .browser_download_url')
+            if [ -z "$url" ]; then echo "::warning::$repo has no Windows release yet - not in the installer"; continue; fi
+            mkdir -p "dl/$repo"; ( cd "dl/$repo" && curl -fsSL -O "$url" && curl -fsSL -O "$sums" && sha256sum -c SHA256SUMS.txt --ignore-missing && tar xzf ./*-windows-x64.tar.gz )
+            top=$(ls -d dl/$repo/*-windows-x64/ | head -1)
+            bundle=$(cd "$top" && ls -d *.vst3 | head -1); name="${bundle%.vst3}"
+            ver=$(basename "$top" | sed 's/^[A-Za-z]*-\(.*\)-windows-x64$/\1/')
+            [ -f "$top/$bundle/Contents/x86_64-win/$bundle" ] || { echo "$repo: no Windows binary"; exit 1; }
+            cp -r "$top/$bundle" "$S/plugins/"
+            cp "$top/LICENSE" "$S/licenses/LICENSE-${name// /}.txt"
+            key=${repo//-/_}   # Inno component names: letters, digits, underscores (axell_76, axell_penta_eq)
+            echo "Name: \"plugins\\$key\"; Description: \"$name $ver\"; Types: full custom" >> packaging/windows/components.iss
+            echo "Source: \"{#Staging}\\plugins\\$bundle\\*\"; DestDir: \"{commoncf64}\\VST3\\$bundle\"; Components: plugins\\$key; Flags: ignoreversion recursesubdirs createallsubdirs" >> packaging/windows/files.iss
+            echo "staged $name $ver"
+          done
+          cat packaging/windows/components.iss
+      - name: Inno Setup
+        env:
+          VERSION: ${{ inputs.version }}   # passed through the environment, never pasted into the script
+          MSYS_NO_PATHCONV: "1"   # Git Bash would turn ISCC's /D options into file paths
+        run: |
+          ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          [ -x "$ISCC" ] || choco install innosetup -y --no-progress
+          "$ISCC" "/DSuiteVersion=$VERSION" "/DStaging=$(cygpath -w "$PWD/staging")" packaging/windows/AxellSignatureSuite.iss
+      - name: Install and uninstall test (silent, on this runner)
+        run: |
+          set -euo pipefail
+          SETUP=$(ls packaging/windows/Output/*.exe); VST3="$(cygpath -u "$COMMONPROGRAMFILES")/VST3"; APP="$(cygpath -u "$PROGRAMFILES")/Axell Signature Dojo"
+          MSYS_NO_PATHCONV=1 "$SETUP" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=install.log
+          [ -f "$APP/Axell Signature Dojo.exe" ] || { echo "the Dojo was not installed"; cat install.log; exit 1; }
+          n=0; for b in staging/plugins/*.vst3; do name=$(basename "$b"); [ -f "$VST3/$name/Contents/x86_64-win/$name" ] && n=$((n+1)) || echo "missing: $name"; done
+          echo "installed: the Dojo and $n of $(ls -d staging/plugins/*.vst3 | wc -l) plugins"; [ "$n" = "$(ls -d staging/plugins/*.vst3 | wc -l)" ]
+          MSYS_NO_PATHCONV=1 "$APP/unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          for i in $(seq 30); do [ -f "$APP/Axell Signature Dojo.exe" ] || break; sleep 2; done
+          [ ! -f "$APP/Axell Signature Dojo.exe" ] || { echo "the uninstaller left the Dojo"; exit 1; }
+          left=$(for b in staging/plugins/*.vst3; do [ -e "$VST3/$(basename "$b")" ] && echo "$(basename "$b")"; done || true)
+          [ -z "$left" ] || { echo "the uninstaller left: $left"; exit 1; }
+          echo "uninstall removed everything it installed"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: AxellSignatureSuite-windows-setup
+          path: packaging/windows/Output/*.exe
+          retention-days: 30

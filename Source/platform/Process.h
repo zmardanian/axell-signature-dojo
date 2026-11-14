@@ -25,7 +25,15 @@ struct Process
     // 50 ms while it runs (progress of a download, ...)
     static ProcessResult run (const juce::StringArray& args, int timeoutMs = 10000, const std::atomic<bool>* cancel = nullptr,
                               const std::function<void()>& tick = {});
-    // is a process with this exact executable name running (from /proc, no pgrep)
+    // is a process with this exact executable name running (from /proc, no pgrep; Windows: the process list)
     static bool isRunning (const juce::String& exeName);
+    // starts a program that keeps running after the Dojo closes (REAPER with a project); nothing captured, no wait
+    static bool launchDetached (const juce::File& program, const juce::StringArray& args);
+    // the REAPER project header's platform ("7.0/linux-x86_64", "7.0/win64")
+    static const char* reaperPlatform();
+    // Windows: starts this program again as administrator (the UAC prompt) with `args`; false if refused or not Windows
+    static bool relaunchElevated (const juce::String& args);
+    // where file choosers start when looking for a USB stick or another drive
+    static juce::File removableMediaRoot();
 };
 } // namespace dojo

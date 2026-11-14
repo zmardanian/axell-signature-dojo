@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg)](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml)
 
-**Axell's Dojo** - the home of the Axell Signature suite on Linux: it installs and updates the eight plugins, tunes a
+**Axell's Dojo** - the home of the Axell Signature suite on Linux and Windows: it installs and updates the eight plugins, tunes a
 complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation.
 
 ![Axell Signature Dojo](docs/screenshots/plugins.png)
@@ -55,10 +55,16 @@ every file the Dojo touches inside `<dir>`.
 
 ## Install
 
-Download `AxellSignatureDojo-3.1.1-linux-x86_64.tar.gz` from the
-[latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) (optional: `sha256sum -c
-SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu. Linux x86_64,
-glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
+**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.0-windows-x64-setup.exe` from the
+[latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) and run it: the Dojo, the
+eight plugins and [Axell 76](https://github.com/zmardanian/axell-76) (VST3, in `C:\Program Files\Common Files\VST3`),
+each one optional; every VST3 host loads them (REAPER, Ableton Live, FL Studio, Cubase, Studio One, Bitwig...). The installer is not code-signed
+yet, so Windows SmartScreen may say "Windows protected your PC": choose **More info > Run anyway**. Later updates come
+from the Dojo's Plugins page. UAD support is Linux only (on Windows, Universal Audio's own software runs UADx).
+
+**Linux:** download `AxellSignatureDojo-3.3.0-linux-x86_64.tar.gz` from the same release (optional:
+`sha256sum -c SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu.
+Linux x86_64, glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
 
 ## Engineering progress
 
@@ -73,6 +79,7 @@ glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a fo
 | **3.0.2** | The seal icon redrawn as a calligraphy page: sumi-ink ensō on washi with the 道 seal, evenly lit | clear on dark desktops (3.0.1's tile was dark at the edges) |
 | **3.1.0** | Signature sounds (approved chains one click from a take: level-matched, master at -14 / -11 LUFS); Update saved chains; Axell Space and its send chains | 3 other takes land at -14.0 +-0.05 LUFS; updated Amber chain on 28 takes: UTMOS 2.267 -> 2.279, esses -0.5 dB; core 64/64, platform 175/175, ASan/UBSan clean, REAPER 17/17 |
 | **3.2.0** | UAD bridge on the Workstation page: read-only checks of the UAD Wine, bridge, plugin tests and rollback point, with confirmed fixes (repair, re-link, test, snapshot, open REAPER detached) | the artist's machine: a second Wine version found running the UAD prefix and fixed; 11 of 13 UADx plugins pass the bridge test; shared Wine process 2.1 -> 0.67 GB for six plugins; core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17 |
+| **3.3.0** | Windows: the Dojo and the eight plugins (one installer); install, update and restore with an administrator restart; Windows workstation checks (VST3 folder, REAPER, ASIO, power plan); UAD stays Linux only | every plugin built and tested on Windows by CI, renders matching Linux (five bit-identical, the rest within -130.5 dBFS); Windows core 59/59, platform 113/113; Linux core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17 |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 

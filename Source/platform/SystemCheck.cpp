@@ -1,13 +1,15 @@
 #include "SystemCheck.h"
-#include "UadBridge.h"
 #include "Process.h"
 
-#include <climits>
-#include <dirent.h>
-#include <gnu/libc-version.h>
-#include <sys/resource.h>
-#include <sys/stat.h>
-#include <sys/statvfs.h>
+#if ! JUCE_WINDOWS   // the Windows checks are in SystemCheckWindows.cpp; the parsers below are shared
+ #include "UadBridge.h"
+ #include <climits>
+ #include <dirent.h>
+ #include <gnu/libc-version.h>
+ #include <sys/resource.h>
+ #include <sys/stat.h>
+ #include <sys/statvfs.h>
+#endif
 
 namespace dojo
 {
@@ -33,6 +35,7 @@ juce::String reaperCacheKey (const juce::String& bundle)
     return k;
 }
 
+#if ! JUCE_WINDOWS
 bool isBrokenLink (const juce::File& f)
 {
     struct stat st {};
@@ -58,10 +61,11 @@ bool sameFolder (juce::String a, const juce::File& b, const juce::File& home)
 const char* const kFlatpakDaws[][2] = { { "fm.reaper.Reaper", "REAPER" }, { "com.bitwig.BitwigStudio", "Bitwig Studio" },
                                         { "org.ardour.Ardour", "Ardour" }, { "io.lmms.LMMS", "LMMS" },
                                         { "org.zrythm.Zrythm", "Zrythm" }, { "org.tenacityaudio.Tenacity", "Tenacity" } };
+#endif
 } // namespace
 
 //==============================================================================
-juce::StringArray SystemCheck::parseVstPath (const juce::String& ini)
+juce::StringArray SystemCheck::parseVstPath (const juce::String& ini, const juce::String& key)
 {
     bool inReaper = false;
     for (auto line : juce::StringArray::fromLines (ini))
@@ -69,13 +73,13 @@ juce::StringArray SystemCheck::parseVstPath (const juce::String& ini)
         line = line.trim();
         if (line.startsWithChar ('['))
             inReaper = line.equalsIgnoreCase ("[reaper]");
-        else if (inReaper && line.startsWith ("vstpath="))
+        else if (inReaper && line.startsWith (key + "="))
             return juce::StringArray::fromTokens (line.fromFirstOccurrenceOf ("=", false, false), ";", "");
     }
     return {};
 }
 
-juce::String SystemCheck::withVstPathAdded (const juce::String& ini, const juce::String& folder)
+juce::String SystemCheck::withVstPathAdded (const juce::String& ini, const juce::String& folder, const juce::String& key)
 {
     const auto eol = ini.contains ("\r\n") ? juce::String ("\r\n") : juce::String ("\n");
     auto lines = juce::StringArray::fromLines (ini);
@@ -87,12 +91,12 @@ juce::String SystemCheck::withVstPathAdded (const juce::String& ini, const juce:
         const auto t = line.trim();
         if (t.startsWithChar ('['))
             inReaper = t.equalsIgnoreCase ("[reaper]");
-        else if (inReaper && t.startsWith ("vstpath="))
+        else if (inReaper && t.startsWith (key + "="))
         {
             auto paths = juce::StringArray::fromTokens (t.fromFirstOccurrenceOf ("=", false, false), ";", "");
             paths.removeEmptyStrings();
             paths.add (folder);
-            line = "vstpath=" + paths.joinIntoString (";");
+            line = key + "=" + paths.joinIntoString (";");
             return lines.joinIntoString (eol) + (ini.endsWith ("\n") ? eol : juce::String());
         }
     }
@@ -123,6 +127,7 @@ juce::String SystemCheck::pipewireDropIn (int quantum)
            "}\n";
 }
 
+#if ! JUCE_WINDOWS
 juce::File SystemCheck::findReaper (const Paths& paths)
 {
     for (auto f : { paths.home.getChildFile ("opt/REAPER/reaper"), juce::File ("/opt/REAPER/reaper"),
@@ -621,4 +626,5 @@ StepResult SystemCheck::apply (const Fix& f) const
     }
     return { false, {} };
 }
+#endif // ! JUCE_WINDOWS
 } // namespace dojo

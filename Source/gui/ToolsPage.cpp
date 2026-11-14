@@ -1,4 +1,5 @@
 #include "Pages.h"
+#include "../platform/Process.h"
 
 namespace dojo::gui
 {
@@ -85,7 +86,7 @@ ToolsPage::ToolsPage (AppState& s, AudioEngine& a) : state (s), audio (a)
     exportButton.setButtonText ("Back up to a folder");
     exportButton.onClick = [this]
     {
-        chooser = std::make_unique<juce::FileChooser> ("Where to put the backup (a USB stick, a cloud folder...)", juce::File ("/run/media"));
+        chooser = std::make_unique<juce::FileChooser> ("Where to put the backup (a USB stick, a cloud folder...)", Process::removableMediaRoot());
         chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories, [this] (const juce::FileChooser& fc)
         {
             if (fc.getResult().isDirectory())
@@ -97,7 +98,7 @@ ToolsPage::ToolsPage (AppState& s, AudioEngine& a) : state (s), audio (a)
     importButton.setButtonText ("Restore a backup");
     importButton.onClick = [this]
     {
-        chooser = std::make_unique<juce::FileChooser> ("An \"Axell Signature Backup\" folder", juce::File ("/run/media"));
+        chooser = std::make_unique<juce::FileChooser> ("An \"Axell Signature Backup\" folder", Process::removableMediaRoot());
         chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories, [this] (const juce::FileChooser& fc)
         {
             if (fc.getResult().isDirectory())

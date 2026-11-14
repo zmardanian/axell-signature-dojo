@@ -22,6 +22,20 @@ Paths Paths::fromEnvironment()
 
     Paths p;
     p.home = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+#if JUCE_WINDOWS
+    // Windows: the VST3 folder every host scans, presets and REAPER's config in %APPDATA% (where the plugins and
+    // REAPER keep them), downloads in %LOCALAPPDATA%
+    auto env = [] (const char* var, const juce::File& fallback)
+    {
+        const auto v = juce::SystemStats::getEnvironmentVariable (var, {});
+        return v.isNotEmpty() && juce::File::isAbsolutePath (v) ? juce::File (v) : fallback;
+    };
+    p.vst3 = env ("CommonProgramFiles", juce::File ("C:\\Program Files\\Common Files")).getChildFile ("VST3");
+    p.dataHome = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+    p.configHome = p.dataHome;
+    p.cacheHome = env ("LOCALAPPDATA", p.home.getChildFile ("AppData\\Local"));
+    return p;
+#endif
     auto xdg = [&p] (const char* var, const char* fallback)
     {
         const auto v = juce::SystemStats::getEnvironmentVariable (var, {});

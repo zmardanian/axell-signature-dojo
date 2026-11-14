@@ -5,9 +5,16 @@
 #include <juce_cryptography/juce_cryptography.h>
 
 #include <cerrno>
-#include <fcntl.h>
 #include <cstdio>
-#include <sys/stat.h>
+#if JUCE_WINDOWS
+ #ifndef NOMINMAX
+  #define NOMINMAX
+ #endif
+ #include <windows.h>
+#else
+ #include <fcntl.h>
+ #include <sys/stat.h>
+#endif
 
 namespace dojo
 {
@@ -37,18 +44,38 @@ juce::var parseModuleInfo (const juce::File& f)
     return juce::JSON::parse (clean);
 }
 
+// one rename; `otherDisk` is set when it failed only because the two paths are on different filesystems
+bool renamePath (const juce::File& from, const juce::File& to, bool* otherDisk = nullptr)
+{
+   #if JUCE_WINDOWS
+    // wide-character paths (any user name), no replacing an existing target
+    if (MoveFileExW (from.getFullPathName().toWideCharPointer(), to.getFullPathName().toWideCharPointer(), 0))
+        return true;
+    if (otherDisk != nullptr)
+        *otherDisk = GetLastError() == ERROR_NOT_SAME_DEVICE;
+    return false;
+   #else
+    if (::rename (from.getFullPathName().toRawUTF8(), to.getFullPathName().toRawUTF8()) == 0)
+        return true;
+    if (otherDisk != nullptr)
+        *otherDisk = errno == EXDEV;
+    return false;
+   #endif
+}
+
 // a directory move: one rename when possible (same filesystem), otherwise copy to a temporary name, rename, delete
 bool moveDir (const juce::File& from, const juce::File& to)
 {
-    if (::rename (from.getFullPathName().toRawUTF8(), to.getFullPathName().toRawUTF8()) == 0)
+    bool otherDisk = false;
+    if (renamePath (from, to, &otherDisk))
         return true;
-    if (errno != EXDEV)
+    if (! otherDisk)
         return false;
     const auto tmp = to.getSiblingFile (to.getFileName() + ".partial");
     tmp.deleteRecursively();
     if (! from.copyDirectoryTo (tmp))
         return false;
-    if (::rename (tmp.getFullPathName().toRawUTF8(), to.getFullPathName().toRawUTF8()) != 0)
+    if (! renamePath (tmp, to))
     {
         tmp.deleteRecursively();
         return false;
@@ -60,13 +87,40 @@ bool moveDir (const juce::File& from, const juce::File& to)
 // the two paths trade places atomically (both must exist); false if the filesystem cannot do it
 bool exchange (const juce::File& a, const juce::File& b)
 {
+   #if JUCE_WINDOWS
+    juce::ignoreUnused (a, b);
+    return false;   // Windows has no atomic exchange: install() moves the old bundle aside, then the new one in
+   #else
     return ::renameat2 (AT_FDCWD, a.getFullPathName().toRawUTF8(), AT_FDCWD, b.getFullPathName().toRawUTF8(), RENAME_EXCHANGE) == 0;
+   #endif
 }
 
 bool isLink (const juce::File& f)
 {
+   #if JUCE_WINDOWS
+    return f.isSymbolicLink();
+   #else
     struct stat st {};
     return ::lstat (f.getFullPathName().toRawUTF8(), &st) == 0 && S_ISLNK (st.st_mode);
+   #endif
+}
+
+// the folder inside a VST3 bundle that holds this system's plugin binary, and the binary's file pattern
+const char* binaryFolder()
+{
+   #if JUCE_WINDOWS
+    return "Contents/x86_64-win";
+   #else
+    return "Contents/x86_64-linux";
+   #endif
+}
+const char* binaryPattern()
+{
+   #if JUCE_WINDOWS
+    return "*.vst3";
+   #else
+    return "*.so";
+   #endif
 }
 
 bool existsOrLink (const juce::File& f) { return f.exists() || isLink (f); }
@@ -92,6 +146,17 @@ Installed Suite::installed (const Product& p) const
     if (r.present)
         r.version = bundleVersion (r.bundle, &r.vendor);
     return r;
+}
+
+bool Suite::canWritePluginFolder() const
+{
+    if (! paths.vst3.isDirectory() && ! paths.vst3.createDirectory())
+        return false;
+    const auto probe = paths.vst3.getChildFile (".axell-dojo-write-test-" + juce::String::toHexString (juce::Random().nextInt64()));
+    if (! probe.create())
+        return false;
+    probe.deleteFile();
+    return true;
 }
 
 juce::StringArray Suite::identityConflicts() const
@@ -132,6 +197,11 @@ juce::StringArray Suite::missingLibraries (const juce::File& bundle, bool& ran)
 {
     juce::StringArray missing;
     ran = false;
+   #if JUCE_WINDOWS
+    // Windows builds link the C++ runtime statically and use only system DLLs: there is nothing to resolve
+    ran = ! bundle.getChildFile (binaryFolder()).findChildFiles (juce::File::findFiles, false, binaryPattern()).isEmpty();
+    return missing;
+   #endif
     const auto binaries = bundle.getChildFile ("Contents/x86_64-linux").findChildFiles (juce::File::findFiles, false, "*.so");
     for (const auto& so : binaries)
     {
@@ -214,7 +284,7 @@ juce::Array<Release> Suite::scanFolder (const Product& p, const juce::File& fold
     juce::Array<Release> out;
     if (! folder.isDirectory())
         return out;
-    // <prefix>-<version>-linux-x86_64.tar.gz with a SHA256SUMS.txt in the same folder; the folder and up to three
+    // <prefix>-<version>-<platform>.tar.gz with a SHA256SUMS.txt in the same folder; the folder and up to three
     // levels below it (a USB stick's layout), walked level by level so a large folder is never scanned whole
     juce::Array<juce::File> level { folder };
     for (int depth = 0; depth <= 3 && ! level.isEmpty(); ++depth)
@@ -222,10 +292,10 @@ juce::Array<Release> Suite::scanFolder (const Product& p, const juce::File& fold
         juce::Array<juce::File> next;
         for (const auto& dir : level)
         {
-            for (const auto& f : dir.findChildFiles (juce::File::findFiles, false, p.assetPrefix + "-*-linux-x86_64.tar.gz"))
+            for (const auto& f : dir.findChildFiles (juce::File::findFiles, false, p.assetPrefix + "-*-" + Product::platformTag() + ".tar.gz"))
             {
                 const auto ver = f.getFileName().fromFirstOccurrenceOf (p.assetPrefix + "-", false, false)
-                                                .upToFirstOccurrenceOf ("-linux-x86_64.tar.gz", false, false);
+                                                .upToFirstOccurrenceOf (juce::String ("-") + Product::platformTag() + ".tar.gz", false, false);
                 Release x;
                 x.productKey = p.key;
                 x.version = Version::parse (ver.toStdString());
@@ -333,7 +403,7 @@ StepResult Suite::stage (const Product& p, const Release& rel, juce::File& stage
     if (! tarResult.ok())
         return { false, "The archive was rejected: " + juce::String (tarResult.error) };
 
-    const auto top = p.assetPrefix + "-" + ver + "-linux-x86_64";
+    const auto top = p.assetPrefix + "-" + ver + "-" + Product::platformTag();
     const auto bundlePrefix = top + "/" + p.bundle;
     const auto stageRoot = paths.staging().getChildFile (p.key + "-" + ver + "-" + juce::String::toHexString (juce::Random().nextInt64()));
     stageRoot.deleteRecursively();
@@ -357,15 +427,17 @@ StepResult Suite::stage (const Product& p, const Release& rel, juce::File& stage
         target.getParentDirectory().createDirectory();
         if (! target.replaceWithData (static_cast<const char*> (data.getData()) + e.offset, e.size))
             return { false, "Cannot write " + target.getFullPathName() };
+       #if ! JUCE_WINDOWS
         ::chmod (target.getFullPathName().toRawUTF8(), (mode_t) ((e.mode & 0111) ? 0755 : 0644));
+       #endif
         ++files;
     }
     if (files == 0)
         return { false, "The archive does not contain " + p.bundle + "." };
 
     if (progress) progress (0.6f, "Checking the plugin");
-    if (stagedBundle.getChildFile ("Contents/x86_64-linux").findChildFiles (juce::File::findFiles, false, "*.so").isEmpty())
-        return { false, "The bundle has no Linux plugin binary." };
+    if (stagedBundle.getChildFile (binaryFolder()).findChildFiles (juce::File::findFiles, false, binaryPattern()).isEmpty())
+        return { false, "The bundle has no plugin binary for this system." };
     juce::String vendor;
     const auto bv = bundleVersion (stagedBundle, &vendor);
     if (bv != rel.version)
@@ -517,7 +589,7 @@ StepResult Suite::restore (const Product& p, const Backup& b) const
         auto newHolder = holder.getSiblingFile ((v.valid ? juce::String (v.toString()) : juce::String ("unknown")) + "_" + timestamp());
         for (int i = 2; newHolder.exists(); ++i)
             newHolder = holder.getSiblingFile (newHolder.getFileName() + "-" + juce::String (i));
-        ::rename (holder.getFullPathName().toRawUTF8(), newHolder.getFullPathName().toRawUTF8());
+        renamePath (holder, newHolder);
         pruneBackups (p);
         return { true, p.name + " " + label + " is restored." };
     }

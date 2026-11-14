@@ -81,7 +81,7 @@ juce::String signatureProjectText (const Signature& s, const juce::File& take, d
     };
     auto q = [] (const juce::String& v) { return juce::String (reaper::quote (v.toStdString())); };
     juce::String t;
-    t << "<REAPER_PROJECT 0.1 \"7.0/linux-x86_64\" " << juce::String (juce::Time::currentTimeMillis() / 1000) << "\n"
+    t << "<REAPER_PROJECT 0.1 \"" << Process::reaperPlatform() << "\" " << juce::String (juce::Time::currentTimeMillis() / 1000) << "\n"
       << "  MASTER_NCH 2 2\n"
       << "  <MASTERFXLIST\n    SHOW 0\n    LASTSEL 0\n    DOCKED 0\n"
       << indent (masterChain, "    ") << "  >\n"
@@ -182,8 +182,7 @@ SignatureSession makeSignatureSession (const Paths& paths, const Signature& s, c
         r.message = "REAPER was not found. The session is ready to open: " + r.project.getFullPathName() + " (" + how + ").";
         return r;
     }
-    const auto run = Process::run ({ "setsid", "-f", reaperApp.getFullPathName(), r.project.getFullPathName() }, 10000);
-    r.message = run.ok() ? "REAPER opens \"" + r.project.getFileName() + "\" (" + how + ")."
+    r.message = Process::launchDetached (reaperApp, { r.project.getFullPathName() }) ? "REAPER opens \"" + r.project.getFileName() + "\" (" + how + ")."
                          : "REAPER could not be started. The session is ready to open: " + r.project.getFullPathName();
     return r;
 }

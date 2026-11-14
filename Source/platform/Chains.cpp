@@ -214,7 +214,7 @@ ChainWriter::Written ChainWriter::write (const juce::String& fileName, const juc
 juce::String ChainWriter::projectText (const juce::String& trackName, const juce::String& chainText)
 {
     juce::String t;
-    t << "<REAPER_PROJECT 0.1 \"7.0/linux-x86_64\" " << juce::String (juce::Time::currentTimeMillis() / 1000) << "\n"
+    t << "<REAPER_PROJECT 0.1 \"" << Process::reaperPlatform() << "\" " << juce::String (juce::Time::currentTimeMillis() / 1000) << "\n"
       << "  <TRACK\n"
       << "    NAME " << reaper::quote (trackName.toStdString()) << "\n"
       << "    REC 1 0 0 0 0 0 0 0\n"   // armed, input 1 (mono), monitoring off: no feedback through speakers
@@ -247,9 +247,8 @@ StepResult ChainWriter::openInReaper (const juce::File& chainFile, const juce::S
     const auto reaperApp = SystemCheck::findReaper (paths);
     if (reaperApp == juce::File())
         return { false, "REAPER was not found. The project is ready to open: " + project.getFullPathName() };
-    // started in its own session so it keeps running after the Dojo closes
-    const auto r = Process::run ({ "setsid", "-f", reaperApp.getFullPathName(), project.getFullPathName() }, 10000);
-    if (! r.ok())
+    // started on its own, so it keeps running after the Dojo closes
+    if (! Process::launchDetached (reaperApp, { project.getFullPathName() }))
         return { false, "REAPER could not be started. The project is ready to open: " + project.getFullPathName() };
     return { true, "REAPER opens \"" + project.getFileName() + "\": the track \"" + trackName + "\" is armed with your chain." };
 }

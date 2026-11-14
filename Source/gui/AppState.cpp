@@ -1,4 +1,5 @@
 #include "AppState.h"
+#include "../platform/Process.h"
 
 namespace dojo::gui
 {
@@ -135,8 +136,30 @@ void AppState::checkReleases()
     }, [this] { releasesBusy = false; });
 }
 
+bool AppState::needsAdministrator()
+{
+   #if JUCE_WINDOWS
+    if (paths.isSandbox || suite.canWritePluginFolder())
+        return false;
+    auto opts = juce::MessageBoxOptions::makeOptionsOkCancel (juce::MessageBoxIconType::InfoIcon, "Administrator permission",
+        "The Axell plugins live in " + paths.vst3.getFullPathName() + ", the folder every Windows DAW scans. Changing plugins "
+        "there needs administrator permission.\n\nRestart the Dojo as administrator? Windows asks you to confirm.",
+        "Restart as administrator", "Cancel");
+    juce::AlertWindow::showAsync (opts, [] (int button)
+    {
+        if (button == 1 && Process::relaunchElevated ("--elevated"))
+            juce::JUCEApplication::getInstance()->systemRequestedQuit();
+    });
+    return true;
+   #else
+    return false;
+   #endif
+}
+
 void AppState::install (const juce::String& key, const Release& release)
 {
+    if (needsAdministrator())
+        return;
     auto* s = product (key);
     if (s == nullptr || s->busy)
         return;
@@ -177,6 +200,8 @@ void AppState::install (const juce::String& key, const Release& release)
 
 void AppState::uninstall (const juce::String& key)
 {
+    if (needsAdministrator())
+        return;
     auto* s = product (key);
     if (s == nullptr || s->busy)
         return;
@@ -188,6 +213,8 @@ void AppState::uninstall (const juce::String& key)
 
 void AppState::restore (const juce::String& key, const Backup& b)
 {
+    if (needsAdministrator())
+        return;
     auto* s = product (key);
     if (s == nullptr || s->busy)
         return;

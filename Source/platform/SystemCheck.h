@@ -45,11 +45,12 @@ public:
     StepResult apply (const Fix&) const;
 
     // parts, public for the tests
-    static juce::StringArray parseVstPath (const juce::String& reaperIni);
-    static juce::String withVstPathAdded (const juce::String& reaperIni, const juce::String& folder);
+    // REAPER's plugin folders: "vstpath" in reaper.ini on Linux, "vstpath64" on Windows
+    static juce::StringArray parseVstPath (const juce::String& reaperIni, const juce::String& key = "vstpath");
+    static juce::String withVstPathAdded (const juce::String& reaperIni, const juce::String& folder, const juce::String& key = "vstpath");
     static std::pair<int, int> parsePipewire (const juce::String& pwMetadataOutput);   // rate, quantum (0 = unknown)
     static juce::String pipewireDropIn (int quantum);
-    // REAPER's program: ~/opt/REAPER, /opt/REAPER, ~/REAPER, or on PATH; {} if absent
+    // REAPER's program: ~/opt/REAPER, /opt/REAPER, ~/REAPER, or on PATH (Windows: Program Files); {} if absent
     static juce::File findReaper (const Paths&);
 
     // the sub-checks

@@ -129,6 +129,9 @@ public:
     juce::String activity;                     // the newest running task, for the status line
 
 private:
+    // Windows: the plugin folder is in Program Files; when the Dojo cannot write there it offers to restart itself as
+    // administrator (one UAC prompt) and returns true, so the caller stops
+    bool needsAdministrator();
     using Work = std::function<void (const std::atomic<bool>& cancel)>;
     void run (const juce::String& label, Work work, std::function<void()> done = {});
     // a progress / result update from a worker thread, applied on the message thread while the state is alive

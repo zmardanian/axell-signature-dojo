@@ -66,10 +66,13 @@ public:
     const Paths& getPaths() const { return paths; }
 
     Installed installed (const Product&) const;
+    // can this process add, replace and remove bundles in the plugin folder (a real test: a file is created there and
+    // deleted). On Windows the folder is in Program Files, so this is false unless the Dojo runs as administrator
+    bool canWritePluginFolder() const;
     // a legacy plugin with the same VST3 identity is installed next to its replacement
     juce::StringArray identityConflicts() const;
 
-    // releases, newest first: GitHub (curl) or a folder holding <prefix>-<version>-linux-x86_64.tar.gz + SHA256SUMS.txt
+    // releases, newest first: GitHub (curl) or a folder holding archiveName() files + SHA256SUMS.txt
     juce::Array<Release> fetchGitHub (const Product&, juce::String& error, const std::atomic<bool>* cancel = nullptr) const;
     juce::Array<Release> scanFolder (const Product&, const juce::File& folder) const;
 

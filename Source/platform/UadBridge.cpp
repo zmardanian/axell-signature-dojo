@@ -1,4 +1,6 @@
 #include "UadBridge.h"
+
+#if ! JUCE_WINDOWS   // the UAD bridge is Linux only: on Windows, Universal Audio's own software runs UADx natively
 #include "Process.h"
 
 #include <climits>
@@ -246,3 +248,4 @@ std::vector<Check> UadBridge::checks() const
     return { wineOwner(), setup(), plugins(), snapshot(), reaper() };
 }
 } // namespace dojo
+#endif

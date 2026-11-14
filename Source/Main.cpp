@@ -39,7 +39,8 @@ class DojoApplication : public juce::JUCEApplication, private juce::Timer
 public:
     const juce::String getApplicationName() override { return "Axell Signature Dojo"; }
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
-    bool moreThanOneInstanceAllowed() override { return false; }
+    // one Dojo at a time; except the copy restarted as administrator (Windows), which starts while this one closes
+    bool moreThanOneInstanceAllowed() override { return getCommandLineParameters().contains ("--elevated"); }
 
     void initialise (const juce::String& commandLine) override
     {

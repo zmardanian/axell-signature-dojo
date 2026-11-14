@@ -34,8 +34,16 @@ static void testProcess()
 {
     check (Process::run ({ "true" }).ok() && ! Process::run ({ "false" }).ok() && Process::run ({ "false" }).exitCode == 1,
            "process: exit codes");
+#if JUCE_WINDOWS
+    // a native program (this test suite itself, see main) prints its arguments back: Windows quoting round-trips
+    const auto self = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getFullPathName();
+    const auto r = Process::run ({ self, "--echo-args", "a b", "c;$(echo x)", "'q'", "say \"hi\"", "C:\\dir\\", "%PATH%", "" });
+    check (r.ok() && r.output == "a b|c;$(echo x)|'q'|say \"hi\"|C:\\dir\\|%PATH%||",
+           "process: arguments reach the program untouched (no shell): " + r.output);
+#else
     const auto r = Process::run ({ "printf", "%s|", "a b", "c;$(echo x)", "'q'" });
     check (r.ok() && r.output == "a b|c;$(echo x)|'q'|", "process: arguments reach the program untouched (no shell): " + r.output);
+#endif
     const auto t0 = juce::Time::getMillisecondCounterHiRes();
     const auto s = Process::run ({ "sleep", "5" }, 300);
     check (s.timedOut && juce::Time::getMillisecondCounterHiRes() - t0 < 2000, "process: timeout stops a hanging program");
@@ -633,6 +641,7 @@ static void testProfile()
 }
 
 //== workstation checks ==========================================================================================
+#if ! JUCE_WINDOWS   // the UAD bridge is Linux only
 static void testUadBridge()
 {
     // Wine's per-prefix server directory: /tmp/.wine-UID/server-<dev hex>-<inode hex>
@@ -668,6 +677,7 @@ static void testUadBridge()
             confirmed = confirmed && f.confirm.isNotEmpty() && ! f.command.isEmpty();
     check (confirmed, "UAD bridge: every fix explains itself before it runs");
 }
+#endif
 
 static void testSystemCheck()
 {
@@ -689,6 +699,7 @@ static void testSystemCheck()
     const auto paths = Paths::sandbox (sandboxRoot.getChildFile ("syscheck"));
     SystemCheck sc (paths);
     paths.vst3.createDirectory();
+#if ! JUCE_WINDOWS   // symbolic links need extra rights on Windows, and the Windows checks offer no link fix
     for (auto n : { "a.vst3", "b.vst3" })
         sandboxRoot.getChildFile ("nowhere").getChildFile (n).createSymbolicLink (paths.vst3.getChildFile (n), true);
     paths.vst3.getChildFile ("real.vst3").createDirectory();
@@ -697,8 +708,13 @@ static void testSystemCheck()
     const auto moved = sc.apply (pf.fixes[0]);
     check (moved.ok && ! paths.vst3.getChildFile ("a.vst3").existsAsFile() && paths.vst3.getChildFile ("real.vst3").isDirectory()
                && sc.pluginFolder().status == Check::Status::ok, "broken links moved aside, real plugins stay: " + moved.message);
+#endif
     paths.reaperConfig().createDirectory();
+#if JUCE_WINDOWS
+    paths.reaperConfig().getChildFile ("reaper.ini").replaceWithText ("[reaper]\nvstpath64=C:\\nowhere\\at\\all\n", false, false, "\n");
+#else
     paths.reaperConfig().getChildFile ("reaper.ini").replaceWithText ("[reaper]\nvstpath=/nowhere/at/all\n", false, false, "\n");
+#endif
     const auto rp = sc.reaperPath();
     check (rp.status == Check::Status::problem && rp.fixes.size() == 1, "REAPER without ~/.vst3 is a problem with a fix");
     if (! Process::isRunning ("reaper"))
@@ -710,13 +726,15 @@ static void testSystemCheck()
     }
     else
         std::printf ("skip  REAPER is running: the reaper.ini fix refuses to run (by design)\n");
+#if ! JUCE_WINDOWS   // PipeWire is Linux only
     const auto q = sc.apply ({ Fix::Kind::pipewireQuantum, "", "", {}, 256, true, "" });
     check (paths.pipewireDropIns().getChildFile ("50-axell-signature-dojo.conf").existsAsFile(), "PipeWire buffer setting written in the sandbox");
     sc.apply ({ Fix::Kind::pipewireQuantum, "", "", {}, 0, false, "" });
     check (! paths.pipewireDropIns().getChildFile ("50-axell-signature-dojo.conf").existsAsFile(), "PipeWire setting removed again");
+    juce::ignoreUnused (q);
+#endif
     const auto cmd = sc.apply ({ Fix::Kind::command, "", "", { "flatpak", "override", "--user", "--filesystem=~/.vst3:ro", "x.y.Z" }, 0, false, "" });
     check (cmd.ok && cmd.message.startsWith ("Sandbox: would run"), "a sandbox never runs a fix's command: " + cmd.message);
-    juce::ignoreUnused (q);
 
     // read-only: the real workstation
     const auto all = SystemCheck (Paths::fromEnvironment()).runAll();
@@ -847,6 +865,12 @@ static void testV2()
 
 int main (int argc, char** argv)
 {
+    if (argc > 1 && std::string (argv[1]) == "--echo-args")   // the process test's native program: its arguments, '|' after each
+    {
+        for (int i = 2; i < argc; ++i)
+            std::printf ("%s|", argv[i]);
+        return 0;
+    }
     juce::ScopedJuceInitialiser_GUI juce;
     sandboxRoot = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("dojo-tests-" + juce::String::toHexString (juce::Random().nextInt64()));
     if (argc > 1 && juce::String (argv[1]) == "--keep")
@@ -1043,7 +1067,9 @@ int main (int argc, char** argv)
     testSuite();
     testHosting();
     testSystemCheck();
+   #if ! JUCE_WINDOWS
     testUadBridge();
+   #endif
     testTemplates();
     testChainUpdate();
     testSignature();

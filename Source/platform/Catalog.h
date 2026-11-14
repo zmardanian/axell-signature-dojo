@@ -13,7 +13,7 @@ struct Product
     juce::String name;           // "Axell Gate"
     juce::String repo;           // GitHub repository under the owner below
     juce::String bundle;         // "Axell Gate.vst3"
-    juce::String assetPrefix;    // release archive "AxellGate-<version>-linux-x86_64.tar.gz"
+    juce::String assetPrefix;    // release archive "AxellGate-<version>-<platformTag()>.tar.gz"
     juce::String presetFolder;   // ~/.local/share/<presetFolder>/Presets ("" = no user presets)
     juce::String presetExt;      // ".axgpreset"
     juce::String manufacturerCode, pluginCode;   // JUCE codes: the VST3 class id is derived from them
@@ -23,7 +23,16 @@ struct Product
     juce::Colour accent;
     juce::String image;          // DojoAssets resource name of its screenshot
 
-    juce::String archiveName (const juce::String& version) const { return assetPrefix + "-" + version + "-linux-x86_64.tar.gz"; }
+    // the release archive for this system: "<prefix>-<version>-linux-x86_64.tar.gz" or "...-windows-x64.tar.gz"
+    static const char* platformTag()
+    {
+       #if JUCE_WINDOWS
+        return "windows-x64";
+       #else
+        return "linux-x86_64";
+       #endif
+    }
+    juce::String archiveName (const juce::String& version) const { return assetPrefix + "-" + version + "-" + platformTag() + ".tar.gz"; }
     // the VST3 class id JUCE gives a plugin: 16 fixed hex digits, then the manufacturer and plugin codes as ASCII hex
     juce::String classId() const;
     bool hasUserPresets() const { return presetFolder.isNotEmpty(); }

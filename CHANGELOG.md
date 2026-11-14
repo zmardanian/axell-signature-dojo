@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.3.0
+- **Windows.** The Dojo and all eight plugins now run on Windows 10 and 11 (64-bit), and so does Axell 76 (the 1176
+  FET compressor, now public: github.com/zmardanian/axell-76). One installer,
+  `AxellSignatureSuite-3.3.0-windows-x64-setup.exe`, puts the Dojo in Program Files and the nine plugins in
+  `C:\Program Files\Common Files\VST3`, the folder every Windows DAW scans. Each plugin is built and tested there by
+  GitHub Actions (MSVC): its test suites, pluginval at strictness 10, and a render of the same signal on Linux and
+  Windows that must match. Measured: five plugins are bit-identical to Linux; De-Reverb and Velvet differ by
+  -132.5 dBFS at most, Space by -130.5 dBFS, Axell 76 by -138.5 dBFS. The installer is tested on a Windows runner:
+  a silent install puts everything in place, the uninstaller removes all of it.
+- **On Windows the Dojo** installs, updates, restores and removes plugins from the plugins' Windows releases (the same
+  checksum-verified archives and strict reader). Changing plugins in Common Files needs administrator permission, so
+  the Dojo offers to restart itself as administrator first (one Windows prompt). The Workstation page checks Windows,
+  the VST3 folder, REAPER and its plugin folders (with the reaper.ini fix), the ASIO drivers and the power plan (a
+  Power saver plan gets a High performance fix). Voice Profile, Chains, signature sounds and Tools work as on Linux.
+- **UAD support stays Linux only**: on Windows, Universal Audio's own software runs UADx natively.
+- Running programs on Windows uses CreateProcess with the arguments quoted for Windows, never a shell; tested with
+  quotes, backslashes, `%VAR%` and empty arguments.
+- Verified: Linux core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17; Windows core 59/59, platform
+  113/113 (the Linux-only checks are not built there).
+
 ## 3.2.0
 - **UAD bridge** (Workstation page, a new group - only on a computer that runs Universal Audio's UADx plugins through
   the UADX toolkit: a pinned Wine build + yabridge, UA Connect and the licences installed and activated through UA's own
