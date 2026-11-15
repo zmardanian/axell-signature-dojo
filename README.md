@@ -1,9 +1,15 @@
 # Axell Signature Dojo
 
 [![CI](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg)](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/zmardanian/axell-signature-dojo?style=flat-square&label=release&color=9c7434)](https://github.com/zmardanian/axell-signature-dojo/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/zmardanian/axell-signature-dojo/total?style=flat-square&color=2a1f17)](https://github.com/zmardanian/axell-signature-dojo/releases)
+![Linux + Windows](https://img.shields.io/badge/Linux%20%2B%20Windows-x86__64-2a1f17?style=flat-square)
+![Plugins](https://img.shields.io/badge/suite-9%20plugins-2a1f17?style=flat-square)
+[![Licence AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-6b5a4a?style=flat-square)](LICENSE)
 
 **Axell's Dojo** - the home of the Axell Signature suite on Linux and Windows: it installs and updates the eight plugins, tunes a
-complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation.
+complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation. On Windows one installer
+carries the Dojo and all nine plugins, Axell 76 included.
 
 ![Axell Signature Dojo](docs/screenshots/plugins.png)
 
@@ -16,9 +22,10 @@ complete vocal chain to *your* voice from one dry take, and sets up REAPER and y
 | [Axell Penta EQ](https://github.com/zmardanian/axell-penta-eq) 3.0.1 | analog-matched parametric, dynamic and spectral EQ with a character rack | **Ess** detector source (Velvet's sibilance network) |
 | [Axell Duo Compressor](https://github.com/zmardanian/axell-duo-compressor) 4.0.2 | FET + opto compressor and true-peak limiter | **ESS HOLD**: the gain holds through your esses (no lifted esses) |
 | [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.3 | neural de-esser + tape / console / tube warmth | the zero-latency LIVE de-esser |
-| [Axell Master](https://github.com/zmardanian/axell-master) 4.0.2 | clipper, true-peak limiter, loudness, streaming-codec check | **ESS HOLD** for a vocal bus |
-| [Axell Space](https://github.com/zmardanian/axell-space) 1.0.1 | vocal reverb (booth / room / plate / hall) + tempo-synced delay | **ESS DUCK**: the esses kept out of the tails (the suite's sibilance network) |
-| [Axell Forbidden Seal](https://github.com/zmardanian/axell-forbidden-seal) 3.0.0 | saturation: eight circuits from physics, three bands | **ESS GUARD**: the esses kept out of the grit; LEARN sets the input level |
+| [Axell Master](https://github.com/zmardanian/axell-master) 4.0.3 | clipper, true-peak limiter, loudness, streaming-codec check | **ESS HOLD** for a vocal bus; 4.0.3: the same sound with 16 % less CPU (22 % on Windows) |
+| [Axell Space](https://github.com/zmardanian/axell-space) 4.0.0 | 32-line true-stereo vocal reverb + CLEAN / TAPE / ANALOG delay, zero latency | **REAL SPACES**: eight real rooms modelled from size and wall materials; **UNMASK** steps the effects back only where they cover the voice |
+| [Axell Forbidden Seal](https://github.com/zmardanian/axell-forbidden-seal) 4.0.1 | saturation: eight circuits from physics, three bands, ESS GUARD, LEARN | **Decoupled saturation**: the voice never passes a circuit - only the harmonics are added, placed out of the box (**FOCUS**, **VOICING**) |
+| [Axell 76](https://github.com/zmardanian/axell-76) 3.2.0 | a clean-room 1176 FET compressor anchored to a real 1176LN | all five ratios incl. all-buttons; in the Windows suite installer |
 
 ## What the Dojo does
 
