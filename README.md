@@ -1,33 +1,122 @@
-# Axell Signature Dojo
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/hero-dark.png">
+  <img alt="Axell Signature Dojo - Your whole vocal chain, tuned to your voice from one take." src="docs/img/type/hero-light.png" width="720">
+</picture>
+</p>
 
-[![CI](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg)](https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/zmardanian/axell-signature-dojo?style=flat-square&label=release&color=9c7434)](https://github.com/zmardanian/axell-signature-dojo/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/zmardanian/axell-signature-dojo/total?style=flat-square&color=2a1f17)](https://github.com/zmardanian/axell-signature-dojo/releases)
-![Linux + Windows](https://img.shields.io/badge/Linux%20%2B%20Windows-x86__64-2a1f17?style=flat-square)
-![Plugins](https://img.shields.io/badge/suite-9%20plugins-2a1f17?style=flat-square)
-[![Licence AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-6b5a4a?style=flat-square)](LICENSE)
+<p align="center">
+  <a href="https://github.com/zmardanian/axell-signature-dojo/releases/latest"><img src="https://img.shields.io/github/v/release/zmardanian/axell-signature-dojo?style=flat-square&label=release&color=8f6a2c" alt="latest release"></a>
+  <a href="https://github.com/zmardanian/axell-signature-dojo/releases"><img src="https://img.shields.io/github/downloads/zmardanian/axell-signature-dojo/total?style=flat-square&color=2a1f17" alt="downloads"></a>
+  <img src="https://img.shields.io/badge/Windows%20%C2%B7%20Linux-x86__64-2a1f17?style=flat-square" alt="Windows and Linux">
+  <a href="https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml"><img src="https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/licence-AGPL--3.0-6b5a4a?style=flat-square" alt="AGPL-3.0">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/plugins.png" alt="Axell Signature Dojo - the Plugins page" width="100%">
+</p>
+
+<p align="center">
+  <b>Your whole vocal chain, tuned to your voice from one dry take.</b><br>
+  The home of the Axell Signature suite: it installs and updates every plugin, measures your voice and your room, tunes a complete chain by rendering your take through the plugins, and opens it in REAPER - on Windows and Linux.
+</p>
+
+<p align="center">
+  <a href="https://github.com/zmardanian/axell-signature-dojo/releases/latest"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/dl-windows-dark.png">
+  <img alt="Download for Windows" src="docs/img/type/dl-windows-light.png" height="58">
+</picture></a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/zmardanian/axell-signature-dojo/releases/latest"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/dl-linux-dark.png">
+  <img alt="Download for Linux" src="docs/img/type/dl-linux-light.png" height="58">
+</picture></a>
+</p>
+
+<p align="center"><sub>Free and open source (AGPL-3.0)  ·  Windows 10 / 11 and Linux  ·  the Dojo and every plugin, one installer</sub></p>
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-why-dark.png">
+  <img alt="01 Why it's different - The suite's home." src="docs/img/type/h-why-light.png" height="68">
+</picture>
+
+- **One installer on Windows** - the Dojo and all nine plugins, each one optional - every VST3 host loads them.
+- **A chain tuned to you** - Voice Profile measures loudness, noise, pitch, your esses, the room and the low end, then tunes the chain on your take.
+- **Your signature, one click** - from a dry take to a REAPER session through your approved vocal and master chains.
+- **Safe updates** - every archive checked against its published SHA-256; the previous version kept as a backup.
+- **Hear it like your listeners** - Streaming Preview: what Spotify, Apple Music, YouTube, Tidal and Amazon Music do to your master.
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-suite-dark.png">
+  <img alt="02 The suite - Nine plugins, one core." src="docs/img/type/h-suite-light.png" height="68">
+</picture>
+
+<p align="center">
+<table>
+<tr><td align="center"><a href="https://github.com/zmardanian/axell-penta-eq"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/penta-eq-dark.png">
+  <img alt="Penta EQ" src="docs/img/suite/penta-eq-light.png" width="120">
+</picture></a><br><sub>analog-matched EQ</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-duo-compressor"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/duo-compressor-dark.png">
+  <img alt="Duo Compressor" src="docs/img/suite/duo-compressor-light.png" width="120">
+</picture></a><br><sub>FET + opto + limiter</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-gate"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/gate-dark.png">
+  <img alt="Gate" src="docs/img/suite/gate-light.png" width="120">
+</picture></a><br><sub>voice-aware gate</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-dereverb"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/dereverb-dark.png">
+  <img alt="De-Reverb" src="docs/img/suite/dereverb-light.png" width="120">
+</picture></a><br><sub>small-room de-reverb</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-velvet"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/velvet-dark.png">
+  <img alt="Velvet" src="docs/img/suite/velvet-light.png" width="120">
+</picture></a><br><sub>neural de-esser + warmth</sub></td></tr>
+<tr><td align="center"><a href="https://github.com/zmardanian/axell-master"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/master-dark.png">
+  <img alt="Master" src="docs/img/suite/master-light.png" width="120">
+</picture></a><br><sub>mastering limiter</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-space"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/space-dark.png">
+  <img alt="Space" src="docs/img/suite/space-light.png" width="120">
+</picture></a><br><sub>vocal reverb + delay</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-forbidden-seal"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/forbidden-seal-dark.png">
+  <img alt="Forbidden Seal" src="docs/img/suite/forbidden-seal-light.png" width="120">
+</picture></a><br><sub>saturation</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-76"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/76-dark.png">
+  <img alt="76" src="docs/img/suite/76-light.png" width="120">
+</picture></a><br><sub>1176 FET compressor</sub></td><td align="center"><a href="https://github.com/zmardanian/axell-signature-dojo"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/suite/signature-dojo-dark.png">
+  <img alt="Signature Dojo" src="docs/img/suite/signature-dojo-light.png" width="120">
+</picture></a><br><sub>the suite's home</sub></td></tr>
+</table>
+</p>
+
+Nine plugins and their home, built as one family: they share a core library, so a breakthrough in one becomes a feature of the next - the sibilance network of Velvet guards the esses in Duo, Master, Space and Forbidden Seal; Gate's voice detector holds Duo's and Master's gain through your pauses. The [Axell Signature Dojo](https://github.com/zmardanian/axell-signature-dojo) installs, updates and tunes the whole suite to your voice - on Windows from a single installer.
+
+| Plugin | What it is | Latest |
+|---|---|---|
+| [Axell De-Reverb](https://github.com/zmardanian/axell-dereverb) 4.0.1 | removes the room from a close vocal (a trained network), LIVE mode for recording | **TRUE TONE**: gives back the low end room removal takes too much of |
+| [Axell Gate](https://github.com/zmardanian/axell-gate) 4.0.1 | a gate that hears the voice and the room, removes headphone bleed, shapes drums | **PITCH HOLD**: soft syllables stay open in the zero-latency gate |
+| [Axell Penta EQ](https://github.com/zmardanian/axell-penta-eq) 3.0.1 | analog-matched parametric, dynamic and spectral EQ with a character rack | **Ess** detector source (Velvet's sibilance network) |
+| [Axell Duo Compressor](https://github.com/zmardanian/axell-duo-compressor) 4.0.3 | FET + opto compressor and true-peak limiter | **ESS HOLD**: the gain holds through your esses (no lifted esses) |
+| [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.4 | neural de-esser + tape / console / tube warmth | the zero-latency LIVE de-esser |
+| [Axell Master](https://github.com/zmardanian/axell-master) 4.0.3 | clipper, true-peak limiter, loudness, streaming-codec check | **ESS HOLD** for a vocal bus; 4.0.3: the same sound with 16 % less CPU (22 % on Windows) |
+| [Axell Space](https://github.com/zmardanian/axell-space) 4.0.1 | 32-line true-stereo vocal reverb + CLEAN / TAPE / ANALOG delay, zero latency | **REAL SPACES**: eight real rooms modelled from size and wall materials; **UNMASK** steps the effects back only where they cover the voice |
+| [Axell Forbidden Seal](https://github.com/zmardanian/axell-forbidden-seal) 4.0.2 | saturation: eight circuits from physics, three bands, ESS GUARD, LEARN | **Decoupled saturation**: the voice never passes a circuit - only the harmonics are added, placed out of the box (**FOCUS**, **VOICING**) |
+| [Axell 76](https://github.com/zmardanian/axell-76) 3.2.0 | a clean-room 1176 FET compressor anchored to a real 1176LN | all five ratios incl. all-buttons; in the Windows suite installer |
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-does-dark.png">
+  <img alt="03 What it does - What the Dojo does." src="docs/img/type/h-does-light.png" height="68">
+</picture>
 
 **Axell's Dojo** - the home of the Axell Signature suite on Linux and Windows: it installs and updates the eight plugins, tunes a
 complete vocal chain to *your* voice from one dry take, and sets up REAPER and your workstation. On Windows one installer
 carries the Dojo and all nine plugins, Axell 76 included.
-
-![Axell Signature Dojo](docs/screenshots/plugins.png)
-
-## The suite (connected through one shared core)
-
-| Plugin | What it is | Latest |
-|---|---|---|
-| [Axell De-Reverb](https://github.com/zmardanian/axell-dereverb) 4.0.0 | removes the room from a close vocal (a trained network), LIVE mode for recording | **TRUE TONE**: gives back the low end room removal takes too much of |
-| [Axell Gate](https://github.com/zmardanian/axell-gate) 4.0.0 | a gate that hears the voice and the room, removes headphone bleed, shapes drums | **PITCH HOLD**: soft syllables stay open in the zero-latency gate |
-| [Axell Penta EQ](https://github.com/zmardanian/axell-penta-eq) 3.0.1 | analog-matched parametric, dynamic and spectral EQ with a character rack | **Ess** detector source (Velvet's sibilance network) |
-| [Axell Duo Compressor](https://github.com/zmardanian/axell-duo-compressor) 4.0.2 | FET + opto compressor and true-peak limiter | **ESS HOLD**: the gain holds through your esses (no lifted esses) |
-| [Axell Velvet](https://github.com/zmardanian/axell-velvet) 3.0.3 | neural de-esser + tape / console / tube warmth | the zero-latency LIVE de-esser |
-| [Axell Master](https://github.com/zmardanian/axell-master) 4.0.3 | clipper, true-peak limiter, loudness, streaming-codec check | **ESS HOLD** for a vocal bus; 4.0.3: the same sound with 16 % less CPU (22 % on Windows) |
-| [Axell Space](https://github.com/zmardanian/axell-space) 4.0.0 | 32-line true-stereo vocal reverb + CLEAN / TAPE / ANALOG delay, zero latency | **REAL SPACES**: eight real rooms modelled from size and wall materials; **UNMASK** steps the effects back only where they cover the voice |
-| [Axell Forbidden Seal](https://github.com/zmardanian/axell-forbidden-seal) 4.0.1 | saturation: eight circuits from physics, three bands, ESS GUARD, LEARN | **Decoupled saturation**: the voice never passes a circuit - only the harmonics are added, placed out of the box (**FOCUS**, **VOICING**) |
-| [Axell 76](https://github.com/zmardanian/axell-76) 3.2.0 | a clean-room 1176 FET compressor anchored to a real 1176LN | all five ratios incl. all-buttons; in the Windows suite installer |
-
-## What the Dojo does
 
 - **Plugins**: install, update, reinstall, restore earlier versions or remove - from GitHub or a folder (USB stick).
   Every archive is checked against its published SHA-256 and unpacked by a strict reader; only the plugin bundle is
@@ -60,20 +149,35 @@ Terminal: `--check` (workstation report), `--profile <take> [--reference <vocal>
 `--update-chains [chain.RfxChain...]`. `AXELL_DOJO_SANDBOX=<dir>` keeps
 every file the Dojo touches inside `<dir>`.
 
-## Install
+<table>
+<tr><td align="center" width="50%"><img src="docs/screenshots/voice-profile.png" alt="Voice Profile" width="100%"><br><sub>Voice Profile</sub></td><td align="center" width="50%"><img src="docs/screenshots/chains.png" alt="Chains" width="100%"><br><sub>Chains</sub></td></tr>
+<tr><td align="center" width="50%"><img src="docs/screenshots/tools.png" alt="Tools" width="100%"><br><sub>Tools</sub></td><td align="center" width="50%"><img src="docs/screenshots/overview.png" alt="Overview" width="100%"><br><sub>Overview</sub></td></tr>
+</table>
 
-**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.1-windows-x64-setup.exe` from the
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-install-dark.png">
+  <img alt="04 Get it - Windows first. Linux too." src="docs/img/type/h-install-light.png" height="68">
+</picture>
+
+**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.2-windows-x64-setup.exe` from the
 [latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) and run it: the Dojo, the
 eight plugins and [Axell 76](https://github.com/zmardanian/axell-76) (VST3, in `C:\Program Files\Common Files\VST3`),
 each one optional; every VST3 host loads them (REAPER, Ableton Live, FL Studio, Cubase, Studio One, Bitwig...). The installer is not code-signed
 yet, so Windows SmartScreen may say "Windows protected your PC": choose **More info > Run anyway**. Later updates come
 from the Dojo's Plugins page. UAD support is Linux only (on Windows, Universal Audio's own software runs UADx).
 
-**Linux:** download `AxellSignatureDojo-3.3.1-linux-x86_64.tar.gz` from the same release (optional:
+**Linux:** download `AxellSignatureDojo-3.3.2-linux-x86_64.tar.gz` from the same release (optional:
 `sha256sum -c SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu.
 Linux x86_64, glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
 
-## Engineering progress
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-history-dark.png">
+  <img alt="05 Version history - Every version, earned." src="docs/img/type/h-history-light.png" height="68">
+</picture>
 
 | Version | Engineering | Measured |
 |---|---|---|
@@ -88,10 +192,17 @@ Linux x86_64, glibc 2.39+. From there the Plugins page installs the suite (from 
 | **3.2.0** | UAD bridge on the Workstation page: read-only checks of the UAD Wine, bridge, plugin tests and rollback point, with confirmed fixes (repair, re-link, test, snapshot, open REAPER detached) | the artist's machine: a second Wine version found running the UAD prefix and fixed; 11 of 13 UADx plugins pass the bridge test; shared Wine process 2.1 -> 0.67 GB for six plugins; core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17 |
 | **3.3.0** | Windows: the Dojo and the eight plugins (one installer); install, update and restore with an administrator restart; Windows workstation checks (VST3 folder, REAPER, ASIO, power plan); UAD stays Linux only | every plugin built and tested on Windows by CI, renders matching Linux (five bit-identical, the rest within -130.5 dBFS); Windows core 59/59, platform 113/113; Linux core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17 |
 | **3.3.1** | Linux: a rare crash when closing a hosted plugin fixed (a JUCE hosting bug, fixed at build time in the Axell core) | pluginval with the same fix 40/40 clean (stock 3/40 crashed); core 64/64, platform 189/189, REAPER 17/17 |
+| **3.3.2** | The suite installer carries this round's optimised plugins (the same sound, less CPU: Master 4.0.3, Forbidden Seal 4.0.2, Gate 4.0.1, Space 4.0.1, Velvet 3.0.4, Duo Compressor 4.0.3, De-Reverb 4.0.1); the Dojo on the faster shared core | every plugin byte-identical to its previous release (presets + random settings); core 64/64, platform 189/189, REAPER 17/17 |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 
-## Build from source
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-build-dark.png">
+  <img alt="06 Build from source - For developers." src="docs/img/type/h-build-light.png" height="68">
+</picture>
+
 ```
 scripts/build.sh
 scripts/install.sh
@@ -99,8 +210,16 @@ scripts/install.sh
 Tests: `build/DojoCoreTests`, `build/DojoPlatformTests_artefacts/Release/DojoPlatformTests` (sandboxed), and
 `tools/reaper-verify.sh` (loads every chain in a portable REAPER copy).
 
-## Licence
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-credits-dark.png">
+  <img alt="07 Credits & contact - Credits & licence." src="docs/img/type/h-credits-light.png" height="68">
+</picture>
+
 AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter and Yuji Syuku fonts (SIL OFL 1.1),
 axell-core (vendored in `external/axell-core`).
 The low-mid reference curve is derived from the VCTK corpus (CC BY 4.0, University of Edinburgh) and CMU ARCTIC.
 Contact: axellpetre@protonmail.com
+
+<br>

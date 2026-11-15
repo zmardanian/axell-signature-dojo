@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.3.2
+- **Lighter plugins, the same sound.** The suite installer carries this round's optimised releases - every one renders
+  byte-for-byte like the version before it (all factory presets and 40 random settings of every parameter, on a vocal
+  and a mix), and uses less CPU: Master 4.0.3 (-16 %, -22 % on Windows), Gate 4.0.1, Velvet 3.0.4, De-Reverb 4.0.1
+  (-13 % processing time), Duo Compressor 4.0.3, Forbidden Seal 4.0.2, Space 4.0.1.
+- The Dojo is built on the faster shared core (its voice analysis uses the same sibilance detector).
+- Verified: core 64/64, platform 189/189 (Linux, ASan + UBSan clean), REAPER 17/17 with the new plugins.
+
 ## 3.3.1
 - **Fixed (Linux): a rare crash when the Dojo closed a plugin it had loaded.** The cause was in JUCE's VST3 *hosting*
   code, not in the Axell plugins: on Linux the host's run loop keeps a callback for each plugin; JUCE's event loop
