@@ -229,3 +229,5 @@ The low-mid reference curve is derived from the VCTK corpus (CC BY 4.0, Universi
 Contact: contact@axellsdojo.com
 
 <br>
+
+<sub>VST is a registered trademark of Steinberg Media Technologies GmbH. 1176, 1176LN, LA-2A, UADx and Universal Audio are trademarks of their respective owners. The Axell plugins are independent works, not affiliated with or endorsed by them; the names only describe what was measured and compared.</sub>
