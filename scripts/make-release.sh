@@ -6,9 +6,19 @@ cd "$(dirname "$0")/.."
 V="$(grep -m1 -oP 'project\(AxellSignatureDojo VERSION \K[0-9.]+' CMakeLists.txt)"
 N="AxellSignatureDojo-$V-linux-x86_64"
 R="$HOME/axell-signature-dojo-release"
-BIN="build/AxellSignatureDojo_artefacts/Release/Axell Signature Dojo"
-[ -x "$BIN" ] || { echo "Build first: scripts/build.sh"; exit 1; }
+BIN="build-portable/AxellSignatureDojo_artefacts/Release/Axell Signature Dojo"
+[ -x "$BIN" ] || { echo "Build first: scripts/build-portable.sh"; exit 1; }
 "$BIN" --version | grep -q "$V" || { echo "The built app is not version $V"; exit 1; }
+check_portable() {
+# portability guard: the archive must run on Ubuntu 22.04 / Debian 12 (glibc 2.35, libstdc++ of gcc 12)
+need() { objdump -T "$1" | grep -oE "$2"'_[0-9.]+' | sed "s/$2_//" | sort -V | tail -n 1; }
+for so in "$@"; do
+  g=$(need "$so" GLIBC); x=$(need "$so" GLIBCXX)
+  [ "$(printf '%s\n2.35\n' "$g" | sort -V | tail -n 1)" = "2.35" ] || { echo "$so needs glibc $g (> 2.35): build with scripts/build-portable.sh"; exit 1; }
+  [ -z "$x" ] || [ "$(printf '%s\n3.4.30\n' "$x" | sort -V | tail -n 1)" = "3.4.30" ] || { echo "$so needs GLIBCXX $x (> 3.4.30): build with scripts/build-portable.sh"; exit 1; }
+done
+}
+check_portable "$BIN"
 mkdir -p "$R"; rm -rf "$R/$N" "$R/$N.tar.gz"; mkdir "$R/$N"
 cp "$BIN" "$R/$N/axell-signature-dojo"
 cp Resources/images/icon.png "$R/$N/axell-signature-dojo.png"
@@ -35,5 +45,5 @@ INSTALL
 chmod +x "$R/$N/install.sh"
 ( cd "$R" && tar --owner=0 --group=0 --numeric-owner --sort=name -cf - "$N" | gzip -n -9 > "$N.tar.gz" && sha256sum "$N.tar.gz" > SHA256SUMS.txt )
 awk "/^## $V/{f=1;next} /^## /{f=0} f" CHANGELOG.md > "$R/release-notes.md"
-printf '\nInstall: download %s.tar.gz, check it against SHA256SUMS.txt, extract, run ./install.sh. Linux x86_64, glibc 2.39+.\nSHA-256: %s\n' "$N" "$(cut -d' ' -f1 "$R/SHA256SUMS.txt")" >> "$R/release-notes.md"
+printf '\nInstall: download %s.tar.gz, check it against SHA256SUMS.txt, extract, run ./install.sh. Linux x86_64, glibc 2.35+ (Ubuntu 22.04+, Debian 12+, Linux Mint 21+).\nSHA-256: %s\n' "$N" "$(cut -d' ' -f1 "$R/SHA256SUMS.txt")" >> "$R/release-notes.md"
 echo "$R/$N.tar.gz"; cat "$R/SHA256SUMS.txt"

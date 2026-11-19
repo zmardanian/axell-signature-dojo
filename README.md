@@ -164,14 +164,14 @@ every file the Dojo touches inside `<dir>`.
   <img alt="04 Get it - Windows first. Linux too." src="docs/img/type/h-install-light.png" height="68">
 </picture>
 
-**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.2-windows-x64-setup.exe` from the
+**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.3-windows-x64-setup.exe` from the
 [latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) and run it: the Dojo, the
 eight plugins and [Axell 76](https://github.com/zmardanian/axell-76) (VST3, in `C:\Program Files\Common Files\VST3`),
 each one optional; every VST3 host loads them (REAPER, Ableton Live, FL Studio, Cubase, Studio One, Bitwig...). The installer is not code-signed
 yet, so Windows SmartScreen may say "Windows protected your PC": choose **More info > Run anyway**. Later updates come
 from the Dojo's Plugins page. UAD support is Linux only (on Windows, Universal Audio's own software runs UADx).
 
-**Linux:** download `AxellSignatureDojo-3.3.2-linux-x86_64.tar.gz` from the same release (optional:
+**Linux:** download `AxellSignatureDojo-3.3.3-linux-x86_64.tar.gz` from the same release (optional:
 `sha256sum -c SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu.
 Linux x86_64, glibc 2.35+ (Ubuntu 22.04+, Debian 12+, Linux Mint 21+). From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
 
@@ -196,6 +196,7 @@ Linux x86_64, glibc 2.35+ (Ubuntu 22.04+, Debian 12+, Linux Mint 21+). From ther
 | **3.3.0** | Windows: the Dojo and the eight plugins (one installer); install, update and restore with an administrator restart; Windows workstation checks (VST3 folder, REAPER, ASIO, power plan); UAD stays Linux only | every plugin built and tested on Windows by CI, renders matching Linux (five bit-identical, the rest within -130.5 dBFS); Windows core 59/59, platform 113/113; Linux core 64/64, platform 189/189, ASan/UBSan clean, REAPER 17/17 |
 | **3.3.1** | Linux: a rare crash when closing a hosted plugin fixed (a JUCE hosting bug, fixed at build time in the Axell core) | pluginval with the same fix 40/40 clean (stock 3/40 crashed); core 64/64, platform 189/189, REAPER 17/17 |
 | **3.3.2** | The suite installer carries this round's optimised plugins (the same sound, less CPU: Master 4.0.3, Forbidden Seal 4.0.2, Gate 4.0.1, Space 4.0.1, Velvet 3.0.4, Duo Compressor 4.0.3, De-Reverb 4.0.1); the Dojo on the faster shared core | every plugin byte-identical to its previous release (presets + random settings); core 64/64, platform 189/189, REAPER 17/17 |
+| **3.3.3** | Linux: the Dojo and the plugins run on Ubuntu 22.04+, Debian 12+, Linux Mint 21+ (built on Ubuntu 22.04; before: glibc 2.38+); the system check's threshold follows. The suite installer ships every product's third-party notices | the rebuilt plugins render bit-identically (De-Reverb within -126 dB, rounding); pluginval 10 passes on Ubuntu 22.04 |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 
@@ -223,7 +224,7 @@ Tests: `build/DojoCoreTests`, `build/DojoPlatformTests_artefacts/Release/DojoPla
 **Free forever, kept alive by you.** The Dojo costs nothing and never will - no subscriptions, no licence keys. If it has earned a place in your mixes, you can [support the Dojo on Ko-fi](https://ko-fi.com/axellyobag) - one-time or monthly, from €3.
 
 
-AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter and Yuji Syuku fonts (SIL OFL 1.1),
+AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter, Great Vibes and Yuji Syuku fonts (SIL OFL 1.1),
 axell-core (vendored in `external/axell-core`).
 The low-mid reference curve is derived from the VCTK corpus (CC BY 4.0, University of Edinburgh) and CMU ARCTIC.
 Contact: contact@axellsdojo.com

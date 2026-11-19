@@ -151,10 +151,11 @@ Check SystemCheck::system() const
     c.detail << (os.isNotEmpty() ? os : juce::String ("Linux")) << (immutable ? " (immutable system image)" : "") << ", "
              << juce::SystemStats::getNumCpus() << " CPU threads, " << juce::String (juce::SystemStats::getMemorySizeInMegabytes() / 1024.0, 1)
              << " GB memory, glibc " << glibc << ".";
-    if (gv.valid && gv < Version::parse ("2.38"))
+    // the Linux archives are built on Ubuntu 22.04 (scripts/build-portable.sh; make-release.sh refuses anything newer)
+    if (gv.valid && gv < Version::parse ("2.35"))
     {
         c.status = Check::Status::problem;
-        c.detail << " The Axell plugins need glibc 2.38 or newer (Fedora 39+, Ubuntu 24.04+).";
+        c.detail << " The Axell plugins need glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+, Linux Mint 21+, Fedora 36+).";
     }
     return c;
 }

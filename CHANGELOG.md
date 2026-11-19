@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.3
+- **Linux: runs on Ubuntu 22.04 and newer.** The Dojo (and, since 2026-11-20, every plugin's Linux archive) is built on
+  Ubuntu 22.04 with gcc 12, so it runs on Ubuntu 22.04+, Debian 12+, Linux Mint 21+ and Fedora 36+ (before: glibc
+  2.38+ only - on Ubuntu 22.04 the plugins did not load at all). The Workstation page's system check now asks for
+  glibc 2.35 instead of 2.38. The release script refuses any build that would need more.
+- **The suite installer ships every product's third-party notices** next to its licence (fonts, JUCE, the VST3 SDK,
+  training data credits).
+- Nothing else changed: the plugins are the same versions as in 3.3.2, and their Linux files render bit-identically to
+  the previous builds (De-Reverb within -126 dB, floating-point rounding).
+
 ## 3.3.2
 - **Lighter plugins, the same sound.** The suite installer carries this round's optimised releases - every one renders
   byte-for-byte like the version before it (all factory presets and 40 random settings of every parameter, on a vocal
