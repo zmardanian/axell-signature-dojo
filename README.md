@@ -226,6 +226,6 @@ Tests: `build/DojoCoreTests`, `build/DojoPlatformTests_artefacts/Release/DojoPla
 AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter and Yuji Syuku fonts (SIL OFL 1.1),
 axell-core (vendored in `external/axell-core`).
 The low-mid reference curve is derived from the VCTK corpus (CC BY 4.0, University of Edinburgh) and CMU ARCTIC.
-Contact: axellpetre@protonmail.com
+Contact: contact@axellsdojo.com
 
 <br>

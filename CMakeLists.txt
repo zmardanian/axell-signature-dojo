@@ -59,7 +59,7 @@ set_target_properties(DojoAssets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 juce_add_gui_app(AxellSignatureDojo
   PRODUCT_NAME "Axell Signature Dojo"
   COMPANY_NAME "Axell Yobag"
-  COMPANY_EMAIL "axellpetre@protonmail.com"
+  COMPANY_EMAIL "contact@axellsdojo.com"
   BUNDLE_ID com.axellyobag.signaturedojo
   ICON_BIG ${CMAKE_CURRENT_LIST_DIR}/Resources/images/icon.png)
 target_sources(AxellSignatureDojo PRIVATE Source/Main.cpp ${DOJO_PLATFORM} ${DOJO_GUI})
