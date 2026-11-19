@@ -32,6 +32,7 @@ jobs:
           S=staging; mkdir -p $S/app $S/plugins $S/licenses dl
           cp "build/AxellSignatureDojo_artefacts/Release/Axell Signature Dojo.exe" $S/app/
           cp LICENSE $S/licenses/LICENSE-Dojo.txt
+          cp THIRD_PARTY_NOTICES.md $S/licenses/THIRD_PARTY_NOTICES-Dojo.md
           : > packaging/windows/components.iss; : > packaging/windows/files.iss
           for repo in axell-dereverb axell-gate axell-penta-eq axell-duo-compressor axell-velvet axell-space axell-forbidden-seal axell-master axell-76; do
             rel=$(curl -fsSL -H "User-Agent: AxellSignatureSuite" "https://api.github.com/repos/zmardanian/$repo/releases/latest")
@@ -45,6 +46,7 @@ jobs:
             [ -f "$top/$bundle/Contents/x86_64-win/$bundle" ] || { echo "$repo: no Windows binary"; exit 1; }
             cp -r "$top/$bundle" "$S/plugins/"
             cp "$top/LICENSE" "$S/licenses/LICENSE-${name// /}.txt"
+            [ -f "$top/THIRD_PARTY_NOTICES.md" ] && cp "$top/THIRD_PARTY_NOTICES.md" "$S/licenses/THIRD_PARTY_NOTICES-${name// /}.md"
             key=${repo//-/_}   # Inno component names: letters, digits, underscores (axell_76, axell_penta_eq)
             echo "Name: \"plugins\\$key\"; Description: \"$name $ver\"; Types: full custom" >> packaging/windows/components.iss
             echo "Source: \"{#Staging}\\plugins\\$bundle\\*\"; DestDir: \"{commoncf64}\\VST3\\$bundle\"; Components: plugins\\$key; Flags: ignoreversion recursesubdirs createallsubdirs" >> packaging/windows/files.iss
