@@ -1,7 +1,7 @@
 # Builds the Windows installer of the Axell Signature Suite: the Dojo (built here with MSVC) and every plugin's
 # published Windows release (downloaded, checksum-verified against the release's SHA256SUMS.txt). Run by hand
 # (Actions > Windows suite installer > Run workflow); the installer is kept as an artifact for the release.
-# Least privilege: read-only token, no secrets, actions pinned to exact commits.
+# Least privilege: read-only token (plus the OIDC token the attestation needs), no secrets, actions pinned to exact commits.
 name: Windows suite installer
 on:
   workflow_dispatch:
@@ -14,6 +14,10 @@ permissions:
 jobs:
   installer:
     runs-on: windows-2022
+    permissions:
+      contents: read
+      id-token: write       # only to sign the provenance attestation (keyless, via GitHub's OIDC)
+      attestations: write
     timeout-minutes: 90
     defaults:
       run:
@@ -75,6 +79,12 @@ jobs:
           left=$(for b in staging/plugins/*.vst3; do [ -e "$VST3/$(basename "$b")" ] && echo "$(basename "$b")"; done || true)
           [ -z "$left" ] || { echo "the uninstaller left: $left"; exit 1; }
           echo "uninstall removed everything it installed"
+      # a signed, public record that this workflow built the installer from this commit (Sigstore); anyone can check it:
+      #   gh attestation verify AxellSignatureSuite-<version>-windows-x64-setup.exe -R zmardanian/axell-signature-dojo
+      - name: Build provenance attestation
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: packaging/windows/Output/*.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: AxellSignatureSuite-windows-setup
