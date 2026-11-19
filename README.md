@@ -11,6 +11,7 @@
   <img src="https://img.shields.io/badge/Windows%20%C2%B7%20Linux-x86__64-2a1f17?style=flat-square" alt="Windows and Linux">
   <a href="https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml"><img src="https://github.com/zmardanian/axell-signature-dojo/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/licence-AGPL--3.0-6b5a4a?style=flat-square" alt="AGPL-3.0">
+  <a href="https://ko-fi.com/axellyobag"><img src="https://img.shields.io/badge/Ko--fi-support%20the%20Dojo-c9a25e?style=flat-square&logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -35,6 +36,8 @@
 </p>
 
 <p align="center"><sub>Free and open source (AGPL-3.0)  ·  Windows 10 / 11 and Linux  ·  the Dojo and every plugin, one installer</sub></p>
+
+<p align="center"><a href="https://ko-fi.com/axellyobag"><img src="https://img.shields.io/badge/Support%20on%20Ko--fi-free%20forever%2C%20kept%20alive%20by%20you-c9a25e?style=for-the-badge&logo=kofi&logoColor=white&labelColor=1a1712" alt="Support on Ko-fi - free forever, kept alive by you" height="34"></a></p>
 
 <br>
 
@@ -216,6 +219,9 @@ Tests: `build/DojoCoreTests`, `build/DojoPlatformTests_artefacts/Release/DojoPla
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/type/h-credits-dark.png">
   <img alt="07 Credits & contact - Credits & licence." src="docs/img/type/h-credits-light.png" height="68">
 </picture>
+
+**Free forever, kept alive by you.** The Dojo costs nothing and never will - no subscriptions, no licence keys. If it has earned a place in your mixes, you can [support the Dojo on Ko-fi](https://ko-fi.com/axellyobag) - one-time or monthly, from €3.
+
 
 AGPLv3 (JUCE is used under AGPLv3). Third-party: JUCE 8.0.15 (AGPLv3), Inter and Yuji Syuku fonts (SIL OFL 1.1),
 axell-core (vendored in `external/axell-core`).
