@@ -173,7 +173,7 @@ from the Dojo's Plugins page. UAD support is Linux only (on Windows, Universal A
 
 **Linux:** download `AxellSignatureDojo-3.3.2-linux-x86_64.tar.gz` from the same release (optional:
 `sha256sum -c SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu.
-Linux x86_64, glibc 2.39+. From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
+Linux x86_64, glibc 2.35+ (Ubuntu 22.04+, Debian 12+, Linux Mint 21+). From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
 
 <br>
 
