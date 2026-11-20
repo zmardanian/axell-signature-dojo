@@ -64,19 +64,24 @@ void Sidebar::paint (juce::Graphics& g)
     // brand
     // Axell's Dojo: the family emblem, drawn as vectors (the brand's own red for the wave and the dot)
     axell::brand::drawEmblem (g, juce::Rectangle<float> (16.0f, 24.0f, 56.0f, 56.0f), axell::brand::kSun);
-    // the brand's title: "Axell's" in gold over "Dojo" brushed, with the Dojo's seal (道, "the way")
+    // the brand's title: "Axell's" over "Dojo" in the suite's script wordmark (the same as the plugins and the website),
+    // in the suite's gold, with the Dojo's seal (道, "the way")
     {
-        auto small = axell::brand::brushPath (juce::String (juce::CharPointer_UTF8 ("Axell\xe2\x80\x99s")), 9.0f, 0.06f);
-        small.applyTransform (juce::AffineTransform::translation (80.0f, 42.0f));
-        g.setGradientFill (juce::ColourGradient (axell::brand::kGoldLight, 0.0f, 33.0f, axell::brand::kGoldDeep, 0.0f, 44.0f, false));
-        axell::brand::fillInk (g, small, 0.3f);
-        auto big = axell::brand::brushPath ("Dojo", 19.0f, -0.01f);
+        const auto gold = axell::brand::accentFor ("Dojo");
+        auto ink = [&] (juce::Path p, float top, float bottom)
+        {
+            juce::DropShadow (juce::Colours::black.withAlpha (0.6f), 4, { 0, 1 }).drawForPath (g, p);
+            g.setGradientFill (juce::ColourGradient (gold.brighter (0.35f), 0.0f, top, gold.darker (0.15f), 0.0f, bottom, false));
+            g.fillPath (p);
+        };
+        auto small = axell::brand::scriptPath (juce::String (juce::CharPointer_UTF8 ("Axell\xe2\x80\x99s")), 15.0f);
+        small.applyTransform (juce::AffineTransform::translation (82.0f, 42.0f));
+        ink (small, 24.0f, 46.0f);
+        auto big = axell::brand::scriptPath ("Dojo", 34.0f);
         const float wN = big.getBounds().getRight();
-        big.applyTransform (juce::AffineTransform::translation (79.0f, 70.0f));
-        juce::DropShadow (juce::Colours::black.withAlpha (0.6f), 4, { 0, 1 }).drawForPath (g, big);
-        g.setGradientFill (juce::ColourGradient (axell::brand::kIvory, 0.0f, 50.0f, axell::brand::kIvoryShade, 0.0f, 76.0f, false));
-        axell::brand::fillInk (g, big, 0.4f);
-        axell::brand::drawSeal (g, { 79.0f + wN + 9.0f, 50.0f, 22.0f, 22.0f }, juce::String (juce::CharPointer_UTF8 ("\xe9\x81\x93")));
+        big.applyTransform (juce::AffineTransform::translation (80.0f, 76.0f));
+        ink (big, 40.0f, 84.0f);
+        axell::brand::drawSeal (g, { 80.0f + wN + 10.0f, 52.0f, 22.0f, 22.0f }, juce::String (juce::CharPointer_UTF8 ("\xe9\x81\x93")));
     }
 
     for (int i = 0; i < numSections; ++i)

@@ -6,6 +6,7 @@
 #include "platform/ProfileEngine.h"
 #include "platform/Paths.h"
 #include "platform/PluginHost.h"
+#include "platform/Minisign.h"
 #include "platform/Process.h"
 #include "platform/Signature.h"
 #include "platform/StateTools.h"
@@ -62,6 +63,46 @@ static juce::File releaseFolder (const juce::String& name)
     return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile (name);
 }
 
+// release signatures: fixtures made with minisign 0.12 and a throwaway test key (prehashed "ED" and legacy "Ed")
+static void testMinisign()
+{
+    const juce::String testKey = "RWT16pW0DIFQGfv5l5b9ipxp5SvMoYHY9hGKkeKgublhOXyN0kAj+qJw";
+    const juce::String msg = "AxellGate-9.9.9-linux-x86_64.tar.gz  0123abc\n";
+    const juce::MemoryBlock m (msg.toRawUTF8(), msg.getNumBytesAsUTF8());
+    const juce::String ed = "untrusted comment: signature from minisign secret key\n"
+        "RUT16pW0DIFQGZPLkhPzmDA5Zy8zUly2b1yLb8yhk8y5AAYM9HcfBN6YFMexi0R3gn1FYbqXxUUsh5U8SDKLUTnTfuMeKx9VGg4=\n"
+        "trusted comment: test checksums\n"
+        "t/FzdtJmxg5JFBl2xh63Wmd5/rCgMx1NZpyxjFFYOcoQ7bjKeAkxanjlJDYn6BDBH+/0qrLYKHtut17K5yAKCw==\n";
+    const juce::String legacy = "untrusted comment: signature from minisign secret key\n"
+        "RWT16pW0DIFQGTpSrY5vWCfl+7vwNfZKXWSbcVkCJuE1aV0eEBZS/MbAiRrpUMLehVDtUqC495gYpf5WEP+UGtp3a1K2PlHW8AY=\n"
+        "trusted comment: legacy test\n"
+        "y8Kq15Dbhuk3XfnCVIxTU42unX4y6Vns6sN8i+pg9pqh2IrRN2HUa3fyIcjh2c4zgw2fFVbDjlTGr7jLafVbBw==\n";
+    const auto a = minisign::verify (m, ed, testKey);
+    check (a.ok && a.trustedComment == "test checksums", "signature: a prehashed minisign signature verifies (" + a.error + ")");
+    check (minisign::verify (m, legacy, testKey).ok, "signature: a legacy minisign signature verifies");
+    check (minisign::verify (m, ed.replace ("\n", "\r\n"), testKey).ok, "signature: Windows line endings in the .minisig are fine");
+    const juce::String other = msg.replace ("0123abc", "0123abd");
+    const auto b = minisign::verify (juce::MemoryBlock (other.toRawUTF8(), other.getNumBytesAsUTF8()), ed, testKey);
+    check (! b.ok && b.error.contains ("does not match"), "signature: one changed character in the checksums is caught");
+    const auto c = minisign::verify (m, ed.replace ("test checksums", "test checksumz"), testKey);
+    check (! c.ok && c.error.contains ("comment"), "signature: an altered trusted comment is caught");
+    const auto d = minisign::verify (m, ed);   // the suite's release key: a different key id
+    check (! d.ok && d.error.contains ("different key"), "signature: a signature by another key is refused");
+    check (! minisign::verify (m, "untrusted comment: x\nnot base64\n", testKey).ok && ! minisign::verify (m, {}, testKey).ok,
+           "signature: garbage is refused");
+    check (Suite::mustBeSigned ("gate", Version::parse ("4.0.3")) && Suite::mustBeSigned ("gate", Version::parse ("5.0.0"))
+           && ! Suite::mustBeSigned ("gate", Version::parse ("4.0.2")) && Suite::mustBeSigned ("not-a-product", Version::parse ("1.0.0")),
+           "signature: required from each plugin's first signed release on, older releases keep checksums only");
+    // a real release, when this machine holds one: its SHA256SUMS.txt against the key built into the Dojo
+    const auto rel = releaseFolder ("axell-gate-release");
+    if (rel.getChildFile ("SHA256SUMS.txt.minisig").existsAsFile())
+    {
+        const auto r = minisign::verifyFile (rel.getChildFile ("SHA256SUMS.txt"), rel.getChildFile ("SHA256SUMS.txt.minisig"));
+        check (r.ok && r.trustedComment.startsWith ("Axell Gate"), "signature: the published Axell Gate release verifies with the release key ("
+                                                                       + (r.ok ? r.trustedComment : r.error) + ")");
+    }
+}
+
 static void testSuite()
 {
     const auto paths = Paths::sandbox (sandboxRoot.getChildFile ("suite"));
@@ -83,6 +124,8 @@ static void testSuite()
     for (auto f : src.findChildFiles (juce::File::findFiles, false, "*.tar.gz"))
         f.copyFileTo (usb.getChildFile (f.getFileName()));
     src.getChildFile ("SHA256SUMS.txt").copyFileTo (usb.getChildFile ("SHA256SUMS.txt"));
+    if (const auto sig = src.getChildFile ("SHA256SUMS.txt.minisig"); sig.existsAsFile())
+        sig.copyFileTo (usb.getChildFile ("SHA256SUMS.txt.minisig"));
     auto rel = suite.scanFolder (gate, usb);
     // the folder's SHA256SUMS lists the newest archive only; an archive without a checksum line still shows. The newest
     // is whatever Gate release the build machine holds (2.0.0 when this was written, 3.0.0 since)
@@ -132,7 +175,17 @@ static void testSuite()
         // a checksum file without a line for this archive
         bad.sumsFile.replaceWithText ("0000000000000000000000000000000000000000000000000000000000000000  other.tar.gz\n");
         const auto c = suite.install (gate, bad, {});
-        check (! c.ok && c.message.contains ("no checksum"), "an archive without a published checksum is refused");
+        check (! c.ok && (bad.sigFile.existsAsFile() ? c.message.contains ("signature does not match") : c.message.contains ("no checksum")),
+               "an archive without a published checksum is refused (a signed release: the altered checksums fail the signature): " + c.message);
+        // a signed release whose signature was removed (a signed version must carry it)
+        if (Suite::mustBeSigned (gate.key, bad.version))
+        {
+            auto unsigned_ = bad;
+            unsigned_.sigFile = juce::File();
+            const auto u = suite.install (gate, unsigned_, {});
+            check (! u.ok && u.message.contains ("should carry the suite's signature") && suite.installed (gate).version == before.version,
+                   "a release from the signed versions on is refused without its signature: " + u.message);
+        }
     }
     // the library check must run: without ldd, or with a failing one, nothing is installed
     for (auto fake : { "/nonexistent/ldd", "false" })
@@ -1064,6 +1117,7 @@ int main (int argc, char** argv)
     }
     sandboxRoot.createDirectory();
     testProcess();
+    testMinisign();
     testSuite();
     testHosting();
     testSystemCheck();

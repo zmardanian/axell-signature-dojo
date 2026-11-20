@@ -164,7 +164,7 @@ every file the Dojo touches inside `<dir>`.
   <img alt="04 Get it - Windows first. Linux too." src="docs/img/type/h-install-light.png" height="68">
 </picture>
 
-**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.3-windows-x64-setup.exe` from the
+**Windows 10 / 11 (64-bit):** download `AxellSignatureSuite-3.3.4-windows-x64-setup.exe` from the
 [latest release](https://github.com/zmardanian/axell-signature-dojo/releases/latest) and run it: the Dojo, the
 eight plugins and [Axell 76](https://github.com/zmardanian/axell-76) (VST3, in `C:\Program Files\Common Files\VST3`),
 each one optional; every VST3 host loads them (REAPER, Ableton Live, FL Studio, Cubase, Studio One, Bitwig...). The installer is not code-signed
@@ -172,8 +172,11 @@ yet, so Windows SmartScreen may say "Windows protected your PC": choose **More i
 from the Dojo's Plugins page. UAD support is Linux only (on Windows, Universal Audio's own software runs UADx).
 The installer is built by GitHub Actions with a signed provenance record (from 3.3.3): `gh attestation verify
 AxellSignatureSuite-<version>-windows-x64-setup.exe -R zmardanian/axell-signature-dojo` proves it came from this repository.
+Every release's `SHA256SUMS.txt` is signed with the suite's release key (from 3.3.4 and the plugins' November 2026
+releases): `minisign -Vm SHA256SUMS.txt -P RWQJLVJSETsP7RRz1rdiugX9w09wtGCtwEc5hHU8k9S+crL/ekfTkQKG`; the Dojo checks this signature
+itself before it installs anything. How releases are built and signed: [code signing policy](https://www.axellsdojo.com/code-signing/).
 
-**Linux:** download `AxellSignatureDojo-3.3.3-linux-x86_64.tar.gz` from the same release (optional:
+**Linux:** download `AxellSignatureDojo-3.3.4-linux-x86_64.tar.gz` from the same release (optional:
 `sha256sum -c SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu.
 Linux x86_64, glibc 2.35+ (Ubuntu 22.04+, Debian 12+, Linux Mint 21+). From there the Plugins page installs the suite (from GitHub or a folder, e.g. a USB stick).
 
@@ -199,6 +202,7 @@ Linux x86_64, glibc 2.35+ (Ubuntu 22.04+, Debian 12+, Linux Mint 21+). From ther
 | **3.3.1** | Linux: a rare crash when closing a hosted plugin fixed (a JUCE hosting bug, fixed at build time in the Axell core) | pluginval with the same fix 40/40 clean (stock 3/40 crashed); core 64/64, platform 189/189, REAPER 17/17 |
 | **3.3.2** | The suite installer carries this round's optimised plugins (the same sound, less CPU: Master 4.0.3, Forbidden Seal 4.0.2, Gate 4.0.1, Space 4.0.1, Velvet 3.0.4, Duo Compressor 4.0.3, De-Reverb 4.0.1); the Dojo on the faster shared core | every plugin byte-identical to its previous release (presets + random settings); core 64/64, platform 189/189, REAPER 17/17 |
 | **3.3.3** | Linux: the Dojo and the plugins run on Ubuntu 22.04+, Debian 12+, Linux Mint 21+ (built on Ubuntu 22.04; before: glibc 2.38+); the system check's threshold follows. The suite installer ships every product's third-party notices | the rebuilt plugins render bit-identically (De-Reverb within -126 dB, rounding); pluginval 10 passes on Ubuntu 22.04 |
+| **3.3.4** | Installs only releases signed with the suite's release key (minisign, checked inside the Dojo with Monocypher); the sidebar's title in the suite's script wordmark; the installer carries the November 2026 plugin releases | 199 platform + 64 core checks (8 new: valid, tampered, wrong-key and unsigned releases); the published Gate 4.0.3 verifies with the built-in key |
 
 The reasoning behind every rule, with its measurement: [docs/DESIGN.md](docs/DESIGN.md); all changes: [CHANGELOG.md](CHANGELOG.md).
 

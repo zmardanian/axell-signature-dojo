@@ -1,10 +1,12 @@
 #include "Suite.h"
+#include "Minisign.h"
 #include "Process.h"
 #include "../model/Tar.h"
 
 #include <juce_cryptography/juce_cryptography.h>
 
 #include <cerrno>
+#include <map>
 #include <cstdio>
 #if JUCE_WINDOWS
  #ifndef NOMINMAX
@@ -271,6 +273,8 @@ juce::Array<Release> Suite::fetchGitHub (const Product& p, juce::String& error, 
                 }
                 else if (name == "SHA256SUMS.txt")
                     x.sumsUrl = url;
+                else if (name == "SHA256SUMS.txt.minisig")
+                    x.sigUrl = url;
             }
         if (x.archiveUrl.isNotEmpty() && x.sumsUrl.isNotEmpty())
             out.add (x);
@@ -302,6 +306,8 @@ juce::Array<Release> Suite::scanFolder (const Product& p, const juce::File& fold
                 x.tag = "v" + ver;
                 x.archiveFile = f;
                 x.sumsFile = f.getSiblingFile ("SHA256SUMS.txt");
+                if (const auto sig = f.getSiblingFile ("SHA256SUMS.txt.minisig"); sig.existsAsFile())
+                    x.sigFile = sig;
                 x.archiveSize = f.getSize();
                 x.published = f.getLastModificationTime().formatted ("%Y-%m-%d");
                 if (x.version.valid && x.sumsFile.existsAsFile())
@@ -358,11 +364,30 @@ StepResult Suite::download (Release& rel, const ProgressFn& progress, const std:
     };
     if (auto s = fetch (rel.sumsUrl, sums, false); ! s.ok)
         return s.message.isEmpty() ? StepResult { false, "Could not save the checksums." } : s;
+    const auto sig = dir.getChildFile ("SHA256SUMS.txt.minisig");
+    sig.deleteFile();
+    if (rel.sigUrl.isNotEmpty())
+        if (auto s = fetch (rel.sigUrl, sig, false); ! s.ok)
+            return s.message.isEmpty() ? StepResult { false, "Could not save the signature." } : s;
     if (auto s = fetch (rel.archiveUrl, archive, true); ! s.ok)
         return s.message.isEmpty() ? StepResult { false, "Could not save the download." } : s;
     rel.archiveFile = archive;
     rel.sumsFile = sums;
+    rel.sigFile = rel.sigUrl.isNotEmpty() ? sig : juce::File();
     return { true, "Downloaded " + p->name + " " + juce::String (rel.version.toString()) + "." };
+}
+
+//==============================================================================
+// From these versions on, every release is signed with the suite's release key: a missing signature means the release
+// was not published by the maintainer. Earlier versions (still installable, e.g. to go back) only have checksums.
+bool Suite::mustBeSigned (const juce::String& productKey, const Version& v)
+{
+    static const std::map<juce::String, Version> firstSigned {
+        { "dereverb", Version::parse ("4.0.2") }, { "gate", Version::parse ("4.0.3") }, { "penta", Version::parse ("3.0.2") },
+        { "duo", Version::parse ("4.0.4") }, { "velvet", Version::parse ("3.0.5") }, { "space", Version::parse ("4.0.2") },
+        { "seal", Version::parse ("4.0.3") }, { "master", Version::parse ("4.0.4") } };
+    const auto it = firstSigned.find (productKey);
+    return it == firstSigned.end() || ! (v < it->second);
 }
 
 //==============================================================================
@@ -375,6 +400,14 @@ StepResult Suite::stage (const Product& p, const Release& rel, juce::File& stage
     if (rel.archiveFile.getSize() > kMaxArchive)
         return { false, "The archive is far larger than any Axell release; it was not opened." };
 
+    if (progress) progress (0.05f, "Checking the release signature");
+    if (rel.sigFile.existsAsFile())
+    {
+        if (const auto v = minisign::verifyFile (rel.sumsFile, rel.sigFile); ! v.ok)
+            return { false, v.error + " Nothing was installed." };
+    }
+    else if (mustBeSigned (p.key, rel.version))
+        return { false, "This release should carry the suite's signature (SHA256SUMS.txt.minisig), but it is missing. Nothing was installed." };
     if (progress) progress (0.1f, "Checking the download's checksum");
     const auto expected = expectedSha256 (rel.sumsFile, rel.archiveFile.getFileName());
     if (expected.isEmpty())

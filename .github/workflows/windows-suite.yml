@@ -31,6 +31,8 @@ jobs:
           cmake -B build -G "Visual Studio 17 2022" -A x64
           cmake --build build --config Release --target AxellSignatureDojo -- -m
       - name: Stage the Dojo and the published plugins
+        env:
+          GH_TOKEN: ${{ github.token }}   # authenticated API calls: the anonymous limit (60/h per IP) is shared on CI runners
         run: |
           set -euo pipefail
           S=staging; mkdir -p $S/app $S/plugins $S/licenses dl
@@ -39,7 +41,7 @@ jobs:
           cp THIRD_PARTY_NOTICES.md $S/licenses/THIRD_PARTY_NOTICES-Dojo.md
           : > packaging/windows/components.iss; : > packaging/windows/files.iss
           for repo in axell-dereverb axell-gate axell-penta-eq axell-duo-compressor axell-velvet axell-space axell-forbidden-seal axell-master axell-76; do
-            rel=$(curl -fsSL -H "User-Agent: AxellSignatureSuite" "https://api.github.com/repos/zmardanian/$repo/releases/latest")
+            rel=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "User-Agent: AxellSignatureSuite" "https://api.github.com/repos/zmardanian/$repo/releases/latest")
             url=$(echo "$rel" | jq -r '.assets[] | select(.name | endswith("-windows-x64.tar.gz")) | .browser_download_url')
             sums=$(echo "$rel" | jq -r '.assets[] | select(.name == "SHA256SUMS.txt") | .browser_download_url')
             if [ -z "$url" ]; then echo "::warning::$repo has no Windows release yet - not in the installer"; continue; fi

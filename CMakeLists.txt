@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(AxellSignatureDojo VERSION 3.3.3)
+project(AxellSignatureDojo VERSION 3.3.4)
 # Windows (MSVC): static runtime (no VC++ redistributable needed), M_PI, UTF-8 sources; GCC-style flags elsewhere only
 if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -42,6 +42,10 @@ set(DOJO_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0 JU
   JUCE_APPLICATION_VERSION_STRING="${PROJECT_VERSION}")
 
 file(GLOB DOJO_PLATFORM CONFIGURE_DEPENDS ${CMAKE_CURRENT_LIST_DIR}/Source/platform/*.cpp)
+# Monocypher (CC0 / BSD-2-Clause): Ed25519 + BLAKE2b for the release signatures (Source/platform/Minisign.cpp)
+add_library(monocypher STATIC external/monocypher/monocypher.c external/monocypher/monocypher-ed25519.c)
+target_include_directories(monocypher PUBLIC external/monocypher)
+set_target_properties(monocypher PROPERTIES POSITION_INDEPENDENT_CODE ON)
 file(GLOB DOJO_GUI CONFIGURE_DEPENDS ${CMAKE_CURRENT_LIST_DIR}/Source/gui/*.cpp)
 
 juce_add_binary_data(DojoAssets HEADER_NAME DojoAssets.h NAMESPACE DojoAssets SOURCES
@@ -66,7 +70,7 @@ target_sources(AxellSignatureDojo PRIVATE Source/Main.cpp ${DOJO_PLATFORM} ${DOJ
 target_include_directories(AxellSignatureDojo PRIVATE Source)
 target_compile_definitions(AxellSignatureDojo PRIVATE ${DOJO_DEFS} JUCE_MODAL_LOOPS_PERMITTED=0)
 axell_core_add_gui(AxellSignatureDojo)
-target_link_libraries(AxellSignatureDojo PRIVATE DojoAssets
+target_link_libraries(AxellSignatureDojo PRIVATE DojoAssets monocypher
   juce::juce_audio_utils juce::juce_audio_processors juce::juce_cryptography juce::juce_dsp
   PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
 
@@ -88,7 +92,7 @@ foreach(tool DojoPlatformTests DojoSnapshot)
   juce_add_console_app(${tool} PRODUCT_NAME "${tool}")
   target_include_directories(${tool} PRIVATE Source)
   target_compile_definitions(${tool} PRIVATE ${DOJO_DEFS} JUCE_MODAL_LOOPS_PERMITTED=1)
-  target_link_libraries(${tool} PRIVATE DojoAssets juce::juce_audio_utils juce::juce_audio_processors
+  target_link_libraries(${tool} PRIVATE DojoAssets monocypher juce::juce_audio_utils juce::juce_audio_processors
     juce::juce_cryptography juce::juce_dsp juce::juce_recommended_config_flags)
   axell_core_add_gui(${tool})
   target_sources(${tool} PRIVATE ${DOJO_PLATFORM} ${DOJO_GUI})

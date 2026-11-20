@@ -31,10 +31,12 @@ jobs:
       - name: Core suite
         run: ./build/DojoCoreTests
       - name: Install the released Axell plugins (the platform suite builds chains from them)
+        env:
+          GH_TOKEN: ${{ github.token }}   # authenticated API calls: the anonymous limit (60/h per IP) is shared on CI runners
         run: |
           set -euo pipefail
           for repo in axell-penta-eq axell-duo-compressor axell-gate axell-dereverb axell-velvet axell-master axell-space axell-forbidden-seal; do
-            rel=$(curl -fsSL "https://api.github.com/repos/zmardanian/$repo/releases/latest")
+            rel=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/zmardanian/$repo/releases/latest")
             tar_url=$(echo "$rel" | jq -r '.assets[] | select(.name | endswith("-linux-x86_64.tar.gz")) | .browser_download_url')
             sums_url=$(echo "$rel" | jq -r '.assets[] | select(.name == "SHA256SUMS.txt") | .browser_download_url')
             mkdir -p "dl/$repo" && cd "dl/$repo"
@@ -64,11 +66,13 @@ jobs:
       - name: Core suite
         run: ./build/Release/DojoCoreTests.exe
       - name: Install the released Axell plugins for Windows (the platform suite hosts them)
+        env:
+          GH_TOKEN: ${{ github.token }}   # authenticated API calls: the anonymous limit (60/h per IP) is shared on CI runners
         run: |
           set -euo pipefail
           VST3="$(cygpath -u "$COMMONPROGRAMFILES")/VST3"; mkdir -p "$VST3"
           for repo in axell-penta-eq axell-duo-compressor axell-gate axell-dereverb axell-velvet axell-master axell-space axell-forbidden-seal; do
-            rel=$(curl -fsSL "https://api.github.com/repos/zmardanian/$repo/releases/latest")
+            rel=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/zmardanian/$repo/releases/latest")
             url=$(echo "$rel" | jq -r '.assets[] | select(.name | endswith("-windows-x64.tar.gz")) | .browser_download_url')
             sums=$(echo "$rel" | jq -r '.assets[] | select(.name == "SHA256SUMS.txt") | .browser_download_url')
             [ -n "$url" ] || { echo "$repo: no Windows release yet"; continue; }

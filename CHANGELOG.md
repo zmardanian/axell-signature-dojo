@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.3.4
+- **Signed releases.** Every release's `SHA256SUMS.txt` is now signed with the suite's release key (minisign), and the
+  Dojo checks that signature itself before it installs anything: a release that was altered, re-signed with another
+  key or (from each plugin's November 2026 release on) published without its signature is refused, and nothing is
+  installed. Older releases keep working with their checksums, so you can still go back to them. The check uses
+  Monocypher (Ed25519 + BLAKE2b; CC0 / BSD-2-Clause, credited in THIRD_PARTY_NOTICES.md). Public key:
+  `RWQJLVJSETsP7RRz1rdiugX9w09wtGCtwEc5hHU8k9S+crL/ekfTkQKG`.
+- **The sidebar's title in the suite's script wordmark**, the same as the plugins and axellsdojo.com.
+- The installer carries the new plugin releases: their DAW preset menus show the right factory preset after a project is
+  reopened, and every control is named for screen readers (audio byte-for-byte unchanged).
+- The Dojo only goes online when you ask it to (Check for updates / Install); it sends nothing about you or your computer.
+
 ## 3.3.3
 - **Linux: runs on Ubuntu 22.04 and newer.** The Dojo (and, since 2026-11-20, every plugin's Linux archive) is built on
   Ubuntu 22.04 with gcc 12, so it runs on Ubuntu 22.04+, Debian 12+, Linux Mint 21+ and Fedora 36+ (before: glibc

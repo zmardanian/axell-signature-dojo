@@ -37,8 +37,8 @@ struct Release
 {
     juce::String productKey, tag;
     Version version;
-    juce::String archiveUrl, sumsUrl;      // GitHub
-    juce::File archiveFile, sumsFile;      // a local folder (USB stick, downloads)
+    juce::String archiveUrl, sumsUrl, sigUrl;     // GitHub (sigUrl: SHA256SUMS.txt.minisig, from November 2026)
+    juce::File archiveFile, sumsFile, sigFile;    // a local folder (USB stick, downloads)
     juce::int64 archiveSize = 0;
     juce::String notes, published;
     bool isLocal() const { return archiveFile != juce::File(); }
@@ -85,6 +85,8 @@ public:
 
     // checksum line for `fileName` in a SHA256SUMS file; empty if absent or malformed
     static juce::String expectedSha256 (const juce::File& sums, const juce::String& fileName);
+    // from the November 2026 releases on, a release without the suite's signature is refused
+    static bool mustBeSigned (const juce::String& productKey, const Version&);
     static juce::String sha256 (const juce::File&);
     static Version bundleVersion (const juce::File& bundle, juce::String* vendor = nullptr);
     // libraries the bundle's binary needs that do not resolve on this system (ldd); `ran` false if ldd is missing
