@@ -170,6 +170,8 @@ eight plugins and [Axell 76](https://github.com/zmardanian/axell-76) (VST3, in `
 each one optional; every VST3 host loads them (REAPER, Ableton Live, FL Studio, Cubase, Studio One, Bitwig...). The installer is not code-signed
 yet, so Windows SmartScreen may say "Windows protected your PC": choose **More info > Run anyway**. Later updates come
 from the Dojo's Plugins page. UAD support is Linux only (on Windows, Universal Audio's own software runs UADx).
+The installer is built by GitHub Actions with a signed provenance record (from 3.3.3): `gh attestation verify
+AxellSignatureSuite-<version>-windows-x64-setup.exe -R zmardanian/axell-signature-dojo` proves it came from this repository.
 
 **Linux:** download `AxellSignatureDojo-3.3.3-linux-x86_64.tar.gz` from the same release (optional:
 `sha256sum -c SHA256SUMS.txt`), extract it and run `./install.sh`; open "Axell Signature Dojo" from your app menu.
